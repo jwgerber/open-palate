@@ -14,6 +14,7 @@ const members = [
   { id: 3, display_name: 'Sam Mail', email: 'sam@example.test', role: 'member', active: true, signed_up: false },
   { id: 4, display_name: 'Gone Away', email: 'gone@example.test', role: 'member', active: false, signed_up: false },
 ];
+const sampleMember = { id: 5, display_name: 'Sample · Robin', email: null, role: 'member', active: true, signed_up: false, is_sample: true };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -204,6 +205,46 @@ describe('GroupSettingsPage', () => {
       render(<GroupSettingsPage />);
       await userEvent.click(within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' }));
       expect(await screen.findByText('This email belongs to someone in another group.')).toBeInTheDocument();
+    });
+  });
+
+  describe('sample data', () => {
+    const withSample = () => api.get.mockImplementation((url) => Promise.resolve({ data: ({
+      '/group': { id: 1, name: 'Test Group', timezone: 'UTC', sample_data: true },
+      '/group/members': [...members, sampleMember],
+      '/group/device-codes': [],
+    })[url] }));
+
+    it('offers no removal when no sample data is loaded', async () => {
+      render(<GroupSettingsPage />);
+      await screen.findByText('Jo Floor');
+      expect(screen.queryByRole('button', { name: 'Remove sample data' })).toBeNull();
+    });
+
+    it('confirms, then removes sample data and hides the button', async () => {
+      withSample();
+      api.delete.mockImplementation(() => {
+        api.get.mockImplementation((url) => Promise.resolve({ data: ({ '/group/members': members, '/group/device-codes': [] })[url] }));
+        return Promise.resolve({ data: { coffees: 5 } });
+      });
+      render(<GroupSettingsPage />);
+      await userEvent.click(await screen.findByRole('button', { name: 'Remove sample data' }));
+      expect(await screen.findByText('Removes the sample coffees, tasters and flight. Real tastings stay.')).toBeInTheDocument();
+      expect(api.delete).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
+      await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/group/sample-data'));
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove sample data' })).toBeNull());
+      await waitFor(() => expect(screen.queryByText('Sample · Robin')).toBeNull());
+    });
+
+    it('marks sample members "Sample" with no edit or sign-in actions', async () => {
+      withSample();
+      render(<GroupSettingsPage />);
+      const row = (await screen.findByText('Sample · Robin')).closest('div').parentElement;
+      expect(within(row).getByText('Sample')).toBeInTheDocument();
+      expect(within(row).queryByRole('button')).toBeNull();
+      expect(within(row).queryByRole('combobox')).toBeNull();
+      expect(within(row).queryByRole('switch')).toBeNull();
     });
   });
 });

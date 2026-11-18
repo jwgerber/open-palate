@@ -7,6 +7,7 @@ import { Autocomplete } from '@mui/material';
 import api from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { apiErrorMessage } from '../apiError';
+import ConfirmDialog from '../common/ConfirmDialog';
 import { formatWhen, formatTime } from '../time';
 
 const browserZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
@@ -61,6 +62,18 @@ const LINK_ERRORS = {
   other_group: 'This email belongs to someone in another group.',
   not_linked: "Couldn't link this person's account.",
 };
+
+// Sample members are read-only: the server refuses edits and sign-in links for them.
+function SampleMemberRow({ member }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Box sx={{ flex: 1, minWidth: 160 }}>
+        <Typography sx={{ fontWeight: 600 }}>{member.display_name}</Typography>
+      </Box>
+      <Chip size="small" label="Sample" />
+    </Box>
+  );
+}
 
 function MemberRow({ member, onChange, onError }) {
   const [editing, setEditing] = useState(false);
@@ -144,13 +157,13 @@ function MemberRow({ member, onChange, onError }) {
   );
 }
 
-function Members() {
+function Members({ reloadKey }) {
   const [members, setMembers] = useState(null);
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ display_name: '', email: '', role: 'member' });
   const load = useCallback(() => api.get('/group/members').then((r) => setMembers(r.data))
     .catch((e) => setError(apiErrorMessage(e, "Couldn't load members."))), []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, reloadKey]);
 
   const replace = (m) => setMembers((list) => list.map((x) => (x.id === m.id ? m : x)));
   const add = async (ev) => {
@@ -174,7 +187,9 @@ function Members() {
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
       {!members && <CircularProgress size={24} />}
-      {members?.map((m) => <MemberRow key={m.id} member={m} onChange={replace} onError={setError} />)}
+      {members?.map((m) => (m.is_sample
+        ? <SampleMemberRow key={m.id} member={m} />
+        : <MemberRow key={m.id} member={m} onChange={replace} onError={setError} />))}
       <Box component="form" onSubmit={add} sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
         <TextField label="Name" size="small" value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
         <TextField label="Email (optional)" size="small" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -239,9 +254,36 @@ function DeviceCodes() {
   );
 }
 
+function SampleData({ onRemoved }) {
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState(null);
+  const remove = async () => {
+    setError(null);
+    try { await api.delete('/group/sample-data'); }
+    catch (e) { setError(apiErrorMessage(e, "Couldn't remove the sample data.")); return; }
+    onRemoved();
+  };
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+      <Typography variant="h2" sx={{ fontSize: 18, mb: 0.5 }}>Sample data</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Example coffees, tasters and a flight are loaded in this group.
+      </Typography>
+      {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
+      <Button variant="outlined" color="error" onClick={() => setConfirming(true)}>Remove sample data</Button>
+      <ConfirmDialog
+        open={confirming} title="Remove sample data?" confirmLabel="Remove" confirmColor="error"
+        message="Removes the sample coffees, tasters and flight. Real tastings stay."
+        onConfirm={remove} onClose={() => setConfirming(false)}
+      />
+    </Paper>
+  );
+}
+
 export default function GroupSettingsPage() {
   const [group, setGroup] = useState(null);
   const [error, setError] = useState(null);
+  const [membersKey, setMembersKey] = useState(0);
   useEffect(() => {
     api.get('/group').then((r) => setGroup(r.data)).catch((e) => setError(apiErrorMessage(e, "Couldn't load the group.")));
   }, []);
@@ -251,7 +293,10 @@ export default function GroupSettingsPage() {
       {error && <Alert severity="error">{error}</Alert>}
       {!group && !error && <CircularProgress />}
       {group && <GroupName group={group} onSaved={setGroup} />}
-      {group && <Members />}
+      {group?.sample_data && (
+        <SampleData onRemoved={() => { setGroup((g) => ({ ...g, sample_data: false })); setMembersKey((k) => k + 1); }} />
+      )}
+      {group && <Members reloadKey={membersKey} />}
       {group && <DeviceCodes />}
     </Box>
   );

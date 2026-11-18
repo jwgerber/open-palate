@@ -4,6 +4,7 @@
  *   isPerson       a signed-in account: logs as itself, owns a palate
  *   canManage      group role editor or admin: coffee details, archive, paper sheets
  *   canCloseAny    group admin: close a flight one did not host
+ *   isAdmin        group admin signed in as a person (same test as canCloseAny; named for non-flight uses)
  *   isSharedDevice a shared tablet: the taster picks a name; it never sees a palate
  *                  or a label key
  *
@@ -18,6 +19,7 @@ export function useTastingIdentity() {
     isPerson: kind === 'user',
     canManage: kind === 'user' && (role === 'editor' || role === 'admin'),
     canCloseAny: kind === 'user' && role === 'admin',
+    isAdmin: kind === 'user' && role === 'admin',
     isSharedDevice: isDevice,
     user,
     timezone: group?.timezone ?? 'UTC',

@@ -27,6 +27,7 @@ import AddCoffeeForm from '../log/screens/AddCoffeeForm';
 import { ScreenHeader } from '../bits/Screen';
 import Eyebrow from '../bits/Eyebrow';
 import Card from '../bits/Card';
+import SampleDataCard from '../bits/SampleDataCard';
 import ToggleChip from '../bits/ToggleChip';
 import { useTastingIdentity } from '../useTastingIdentity';
 import { plural } from '../format';
@@ -159,6 +160,7 @@ export default function CoffeesTab() {
           <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={pickFile} data-testid="coffee-csv-input" />
         </Box>
       )}
+      <Box sx={{ mb: 1.5 }}><SampleDataCard onLoaded={load} /></Box>
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {!data && !error && <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>}

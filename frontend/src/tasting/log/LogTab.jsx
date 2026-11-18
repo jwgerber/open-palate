@@ -35,6 +35,7 @@ import { useTastingIdentity } from '../useTastingIdentity';
 import { plural, prepWord } from '../format';
 import Eyebrow from '../bits/Eyebrow';
 import Card from '../bits/Card';
+import SampleDataCard from '../bits/SampleDataCard';
 
 const PrintSheetsDialog = lazy(() => import('../print/PrintSheetsDialog'));
 
@@ -192,6 +193,8 @@ export default function LogTab() {
           <Typography variant="caption">{whoLine}</Typography>
         </Box>
       </Card>
+
+      <SampleDataCard onLoaded={loadRecent} />
 
       {inviteError && <Alert severity="error">{inviteError}</Alert>}
       {deleteError && <Alert severity="error" onClose={() => setDeleteError(null)}>{deleteError}</Alert>}
