@@ -30,7 +30,7 @@ def _group_dict(group: Group) -> dict:
 def _member_dict(member: Member) -> dict:
     return {"id": member.id, "display_name": member.display_name, "email": member.email,
             "role": member.role, "active": member.active,
-            "signed_up": member.user_id is not None}
+            "signed_up": member.user_id is not None, "is_sample": member.is_sample}
 
 
 def _field_error(message: str, field: str, status: int = 400):
@@ -144,6 +144,8 @@ def patch_member(member_id: int):
     ).scalar_one_or_none()
     if member is None:
         return jsonify({"error": "not_found"}), 404
+    if member.is_sample:
+        return jsonify({"error": "sample_member"}), 409
 
     changes = {}
     if "display_name" in data:
@@ -195,6 +197,8 @@ def copy_signin_link(member_id: int):
     ).scalar_one_or_none()
     if member is None:
         return jsonify({"error": "not_found"}), 404
+    if member.is_sample:
+        return jsonify({"error": "sample_member"}), 409
     if not member.active:
         return jsonify({"error": "member_inactive"}), 409
     email = normalize_email(member.email)

@@ -119,7 +119,8 @@ def actor_for_pick(member_id) -> Actor:
     if device.kind != "device":
         raise RuntimeError("actor_for_pick() is for device sessions only")
     member = db.session.execute(
-        db.select(Member).where(Member.id == member_id, Member.group_id == device.group_id)
+        db.select(Member).where(Member.id == member_id, Member.group_id == device.group_id,
+                               Member.is_sample.is_(False))
     ).scalar_one_or_none() if is_pg_int(member_id) else None
     if member is None:
         _deny(404, "not_found")

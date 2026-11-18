@@ -46,7 +46,8 @@ def _paper_taster(group_id: int, data: dict) -> TasterIdentity:
         if not is_pg_int(member_id):
             raise TastingValidationError("taster_member_id", "Pick someone on this group's roster")
         member = db.session.execute(db.select(Member).where(
-            Member.id == member_id, Member.group_id == group_id)).scalar_one_or_none()
+            Member.id == member_id, Member.group_id == group_id,
+            Member.is_sample.is_(False))).scalar_one_or_none()
         if member is None:
             abort(make_response(jsonify({"error": "not_found"}), 404))
         if not member.active:

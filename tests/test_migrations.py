@@ -86,3 +86,38 @@ def test_session_kind_shape_check(fresh_url):
                     "(1, 1, 'h', 'device', '2026-01-01', '2026-01-01', '2026-02-01')"))
     finally:
         engine.dispose()
+
+
+SAMPLE_TABLES = ("members", "tasting_coffees", "tasting_flights")
+
+
+def test_sample_flag_defaults_false_on_existing_rows(fresh_url):
+    config = alembic_config(fresh_url)
+    command.upgrade(config, "0004")
+    engine = sa.create_engine(normalize_database_url(fresh_url))
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text(
+                "INSERT INTO groups (id, name, timezone, is_personal, created_at) "
+                "VALUES (1, 'G', 'UTC', false, '2026-01-01')"))
+            conn.execute(sa.text(
+                "INSERT INTO members (id, group_id, display_name, role, active, created_at) "
+                "VALUES (1, 1, 'M', 'member', true, '2026-01-01')"))
+            conn.execute(sa.text(
+                "INSERT INTO tasting_coffees (id, group_id, name, kind, created_at, updated_at) "
+                "VALUES (1, 1, 'C', 'house', '2026-01-01', '2026-01-01')"))
+            conn.execute(sa.text(
+                "INSERT INTO tasting_flights (id, group_id, prep, opened_at, closes_at, created_at) "
+                "VALUES (1, 1, 'drip', '2026-01-01', '2026-01-01', '2026-01-01')"))
+        command.upgrade(config, "0005")
+        with engine.connect() as conn:
+            for table in SAMPLE_TABLES:
+                assert conn.execute(sa.text(f"SELECT is_sample FROM {table}")).scalar() in (False, 0)
+        for table in SAMPLE_TABLES:
+            col = next(c for c in sa.inspect(engine).get_columns(table) if c["name"] == "is_sample")
+            assert not col["nullable"], table
+        command.downgrade(config, "0004")
+        for table in SAMPLE_TABLES:
+            assert "is_sample" not in {c["name"] for c in sa.inspect(engine).get_columns(table)}
+    finally:
+        engine.dispose()

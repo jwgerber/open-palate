@@ -71,6 +71,7 @@ class TastingCoffee(db.Model):
     notes = db.Column(db.Text, nullable=False, default="", server_default="")
 
     archived_at = db.Column(db.DateTime, nullable=True)
+    is_sample = db.Column(db.Boolean, nullable=False, default=False, server_default=sa.false())
     created_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
@@ -136,6 +137,8 @@ class TastingFlight(db.Model):
     adv_step = db.Column(db.Numeric(2, 1), nullable=True)
     timer_started_at = db.Column(db.DateTime, nullable=True)   # unused for now
     adv_pass = db.Column(db.SmallInteger, nullable=True)       # unused for now
+
+    is_sample = db.Column(db.Boolean, nullable=False, default=False, server_default=sa.false())
 
     opened_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     # No default on purpose: a shared flight closes opened_at + 24h, a solo one

@@ -56,6 +56,8 @@ class Member(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     role = db.Column(db.String(10), nullable=False)
     active = db.Column(db.Boolean, nullable=False, default=True, server_default=sa.true())
+    # Created by "load sample data": hidden from every picker, never signs in.
+    is_sample = db.Column(db.Boolean, nullable=False, default=False, server_default=sa.false())
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
 
 

@@ -55,7 +55,8 @@ def members():
     group_id = current_actor().group_id
     rows = db.session.execute(
         db.select(Member.id, Member.display_name)
-        .where(Member.group_id == group_id, Member.active.is_(True))
+        .where(Member.group_id == group_id, Member.active.is_(True),
+               Member.is_sample.is_(False))
         .order_by(func.lower(Member.display_name), Member.id)
     ).all()
     return jsonify([{"id": mid, "display_name": name} for mid, name in rows])
