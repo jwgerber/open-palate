@@ -77,7 +77,7 @@ def guji(world):
 class TestFloors:
     def test_signed_out_is_401(self, world):
         assert world.anon.get(f"{BASE}/coffees").status_code == 401
-        assert world.anon.get(f"{BASE}/content").status_code == 401
+        assert world.anon.get("/api/content").status_code == 401
 
     def test_member_level_reads_for_everyone_in(self, world):
         for who in ("member", "editor", "admin", "device"):
@@ -257,17 +257,71 @@ class TestIdentityOnReads:
         assert r.status_code == 422
 
 
+class TestOpenFlightsStayDark:
+    """Anti-goal: nothing on the coffee pages moves while a blind flight is open."""
+
+    def _snapshot(self, world, coffee):
+        row = next(c for c in world.get("member", "/coffees").get_json()["coffees"] if c["id"] == coffee.id)
+        detail = world.get("editor", f"/coffees/{coffee.id}").get_json()
+        keys = ("n", "basic_n", "avg_overall", "spread", "top_terms", "last_tasted_at", "tasted_by_me")
+        return {k: row[k] for k in keys}, {k: detail.get(k) for k in ("n", "consensus", "yours")}
+
+    def test_open_blind_flight_changes_nothing_until_closed(self, world, guji):
+        from tasting.models import TastingFlight, TastingTag
+        before = self._snapshot(world, guji)
+        assert before[0]["n"] == 0
+        now = utc_now()
+        flight = make_flight(db.session, world.group, [guji], is_shared=True, is_blind=True,
+                             is_open=True, opened_at=now, closes_at=now + datetime.timedelta(hours=24))
+        for role, overall in (("member", 5), ("editor", 4), ("admin", 3)):
+            t = world.read(flight, guji, role, overall=overall)
+            t.tags.append(TastingTag(term="Fruity>Berry>blueberry", strength=3))
+        db.session.commit()
+        assert self._snapshot(world, guji) == before
+        assert world.get("member", "/coffees/match?q=guji").get_json()["match"]["n"] == 0
+        db.session.expire_all()
+        db.session.get(TastingFlight, flight.id).is_open = False
+        db.session.get(TastingFlight, flight.id).closed_at = utc_now()
+        db.session.commit()
+        after_list, after_detail = self._snapshot(world, guji)
+        assert after_list["n"] == 3 and after_list["avg_overall"] == 4.0
+        assert after_list["last_tasted_at"] is not None
+        assert after_detail["n"] == 3 and after_detail["consensus"]["n"] == 3
+        assert world.get("member", "/coffees/match?q=guji").get_json()["match"]["n"] == 3
+
+    def test_flight_past_its_close_time_counts_as_closed(self, world, guji):
+        past = utc_now() - datetime.timedelta(hours=30)
+        flight = make_flight(db.session, world.group, [guji], is_shared=True, is_open=True,
+                             opened_at=past, closes_at=past + datetime.timedelta(hours=24))
+        world.read(flight, guji, "member", overall=4)
+        db.session.commit()
+        assert self._snapshot(world, guji)[0]["n"] == 1
+
+
+class TestStrictMemberId:
+    @pytest.mark.parametrize("raw", ["abc", "1.5", "-1", "0", "", "99999999999999999999", "%C2%B2"])
+    def test_malformed_member_id_is_400(self, world, guji, raw):
+        for path in (f"/coffees/{guji.id}", f"/coffees/{guji.id}/sessions", "/coffees?mine=1"):
+            sep = "&" if "?" in path else "?"
+            r = world.get("device", f"{path}{sep}member_id={raw}")
+            assert r.status_code == 400, (path, raw)
+            assert r.get_json() == {"error": "bad_member_id", "field": "member_id"}
+
+    def test_absent_member_id_is_fine(self, world, guji):
+        assert world.get("device", f"/coffees/{guji.id}").status_code == 200
+
+
 class TestContent:
     def test_content_with_etag_and_304(self, world):
-        r = world.get("member", "/content")
+        r = world.clients["member"].get("/api/content")
         assert r.status_code == 200
         body = r.get_json()
         assert set(body) == {"lexicon", "forms"}
         assert body["lexicon"]["tree"][0]["label"] == "Fruity"
         etag = r.headers["ETag"]
-        again = world.get("member", "/content", headers={"If-None-Match": etag})
+        again = world.clients["member"].get("/api/content", headers={"If-None-Match": etag})
         assert again.status_code == 304
-        assert world.get("device", "/content").status_code == 200
+        assert world.clients["device"].get("/api/content").status_code == 200
 
 
 EXPORT, PREVIEW, APPLY = "/coffees/export.csv", "/coffees/import/preview", "/coffees/import"

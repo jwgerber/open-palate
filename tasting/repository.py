@@ -28,7 +28,7 @@ from rapidfuzz import fuzz
 from sqlalchemy.orm import selectinload
 
 from extensions import db
-from identity.access import Actor
+from identity.access import MANAGER_ROLES, Actor
 from tasting import content
 from tasting.enums import (BAR_VOTES, COFFEE_KINDS, CONSENSUS_THRESHOLD, PROCESSES,
                            ROASTS)
@@ -114,7 +114,7 @@ def may_see_named(flight: TastingFlight, actor: Optional[Actor]) -> bool:
     ``actor.kind``, never on ``actor.user_id`` (a device pick carries one)."""
     if actor is None or actor.kind != "user":
         return False
-    if actor.role in ("editor", "admin"):
+    if actor.role in MANAGER_ROLES:
         return True
     return flight.created_via == "account" and flight.host_user_id == actor.user_id
 
@@ -253,17 +253,22 @@ def match_coffee(group_id: int, query: str) -> Optional[dict]:
 def _tasting_count(coffee_id: int) -> int:
     return db.session.scalar(
         db.select(db.func.count()).select_from(Tasting)
-        .where(Tasting.coffee_id == coffee_id, Tasting.sheet == "basic"))
+        .join(TastingFlight, Tasting.flight_id == TastingFlight.id)
+        .where(Tasting.coffee_id == coffee_id, Tasting.sheet == "basic", closed_flight_clause()))
 
 
 def _load_tastings(coffee_ids, *, sheet: Optional[str] = "basic") -> dict:
-    """coffee_id -> [Tasting] with tags loaded, one query. Defaults to basic reads:
+    """coffee_id -> [Tasting] with tags loaded, one query, from CLOSED flights only:
+    a read in an open flight must not move any count, average or date on the coffee
+    pages, or watching them would reveal what an open blind flight is tasting.
+    Defaults to basic reads:
     advanced reads have no Overall and must never reach a basic aggregate, flavor
     term or the consensus threshold. ``sheet=None`` loads both."""
     if not coffee_ids:
         return {}
     q = (db.select(Tasting).options(selectinload(Tasting.tags), selectinload(Tasting.defects))
-         .where(Tasting.coffee_id.in_(list(coffee_ids))))
+         .join(TastingFlight, Tasting.flight_id == TastingFlight.id)
+         .where(Tasting.coffee_id.in_(list(coffee_ids)), closed_flight_clause()))
     if sheet is not None:
         q = q.where(Tasting.sheet == sheet)
     by_coffee = defaultdict(list)
@@ -281,7 +286,7 @@ def list_coffees(group_id: int, *, include_archived: bool = False,
     if not include_archived:
         q = q.where(TastingCoffee.archived_at.is_(None))
     coffees = db.session.execute(q.order_by(TastingCoffee.name, TastingCoffee.id)).scalars().all()
-    # Activity (n, mine, last) counts every sheet; aggregates stay basic-only so a
+    # Activity (n, mine, last) counts every sheet of closed flights; aggregates stay basic-only so a
     # cupping read never reaches an Overall average or the consensus threshold.
     by_coffee = _load_tastings([c.id for c in coffees], sheet=None)
     cupping = _cupping_lines([c.id for c in coffees])

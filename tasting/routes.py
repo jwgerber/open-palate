@@ -16,7 +16,7 @@ from typing import Optional
 from flask import Blueprint, Response, jsonify, make_response, request
 
 from extensions import db
-from identity.access import Actor, actor_for_pick, current_actor, require
+from identity.access import MANAGER_ROLES, Actor, actor_for_pick, current_actor, require
 from identity.models import Group
 from tasting import coffee_csv as tasting_coffee_csv
 from tasting import coffee_sessions as tasting_coffee_sessions
@@ -28,9 +28,9 @@ from utils import get_json_object, handle_db_errors, is_pg_int, to_group_local, 
 
 logger = logging.getLogger(__name__)
 tasting_bp = Blueprint("tasting", __name__, url_prefix="/api/tasting")
+content_bp = Blueprint("content", __name__, url_prefix="/api")
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
-MANAGER_ROLES = ("editor", "admin")
 
 
 def _group_timezone(group_id: int) -> str:
@@ -39,6 +39,17 @@ def _group_timezone(group_id: int) -> str:
 
 def _is_manager(actor: Actor) -> bool:
     return actor.kind == "user" and actor.role in MANAGER_ROLES
+
+
+def _member_id_arg() -> Optional[int]:
+    """The ``member_id`` query arg, parsed strictly: absent is None, anything
+    that is not a positive Postgres integer is 400 ``bad_member_id``."""
+    raw = request.args.get("member_id")
+    if raw is None:
+        return None
+    if not (raw.isascii() and raw.isdigit() and is_pg_int(int(raw))):
+        raise TastingValidationError("member_id", "bad_member_id")
+    return int(raw)
 
 
 def _taster(member_id=None) -> tuple[Actor, Optional[TasterIdentity]]:
@@ -67,7 +78,7 @@ def _coffee_or_404(group_id: int, coffee_id):
 # content
 # ---------------------------------------------------------------------------
 
-@tasting_bp.get("/content")
+@content_bp.get("/content")
 @require("member")
 @handle_db_errors("Failed to load content")
 def get_content():
@@ -90,7 +101,7 @@ def list_coffees():
     actor = current_actor()
     who = None
     if request.args.get("mine", "").lower() in ("1", "true"):
-        actor, who = _taster(request.args.get("member_id", type=int))
+        actor, who = _taster(_member_id_arg())
     coffees = trepo.list_coffees(actor.group_id, include_archived=include_archived, who=who)
     return jsonify({"coffees": coffees, "roasters": trepo.list_roasters(actor.group_id)})
 
@@ -121,7 +132,7 @@ def create_coffee():
 @require("member")
 @handle_db_errors("Failed to load coffee")
 def get_coffee(coffee_id):
-    actor, who = _taster(request.args.get("member_id", type=int))
+    actor, who = _taster(_member_id_arg())
     coffee, err = _coffee_or_404(actor.group_id, coffee_id)
     if err:
         return err
@@ -136,7 +147,7 @@ def get_coffee(coffee_id):
 @require("member")
 @handle_db_errors("Failed to load sessions")
 def coffee_sessions(coffee_id):
-    actor, identity = _taster(request.args.get("member_id", type=int))
+    actor, identity = _taster(_member_id_arg())
     coffee, err = _coffee_or_404(actor.group_id, coffee_id)
     if err:
         return err

@@ -65,7 +65,7 @@ def export_csv(group_id: int) -> str:
 
 MAX_ROWS = 2000
 TEXT_LIMITS = {"name": 255, "roaster": 255, "notes": 4000, **dict(COFFEE_TEXT_LIMITS)}
-# The flight upload's own columns: a Count Export file carries them, and the
+# The flight upload's own columns: an exported flight file carries them, and the
 # coffee import accepts that file as-is without reading any of them.
 IGNORED_COLUMNS = ("flight", "prep", "position", "blind_label")
 # Columns an older export carried that mean nothing here: ignored with a warning.
@@ -115,7 +115,7 @@ class SkippedRow:
     row: int
     name: str
     roaster: str
-    archived: bool              # the only match in Count is archived
+    archived: bool              # the only match in the group is archived
     message: str
 
 

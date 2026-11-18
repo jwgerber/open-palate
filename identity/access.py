@@ -1,9 +1,9 @@
 """Access layer: who is calling (an Actor) and what level a route needs.
 
-Replaces Count's permission keys with group roles:
+Replaces the old per-key permission model with group roles:
 
 =========  =====================================  ==========================
-level      who passes                             Count key it replaces
+level      who passes                             permission key it replaces
 =========  =====================================  ==========================
 member     any session in the group               tasting.view / .edit
 self       a user session (a person)              tasting.self
@@ -30,6 +30,7 @@ from utils import is_pg_int
 Level = Literal["member", "self", "device", "manage", "admin"]
 LEVELS: frozenset[str] = frozenset({"member", "self", "device", "manage", "admin"})
 DEVICE_DISPLAY_NAME = "Shared device"
+MANAGER_ROLES: tuple[str, ...] = ("editor", "admin")   # roles at the manage level
 _ACTOR_KEY = "tasting.actor"
 
 
@@ -76,7 +77,7 @@ def _allowed(actor: Actor, level: str) -> bool:
     if level == "self":
         return True
     if level == "manage":
-        return actor.role in ("editor", "admin")
+        return actor.role in MANAGER_ROLES
     return actor.role == "admin"  # level == "admin"
 
 

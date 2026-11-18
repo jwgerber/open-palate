@@ -4,8 +4,10 @@ Terms are stored on ``tasting_tags.term`` as PATH KEYS (``"Fruity>Berry>blueberr
 not bare labels, because the wheel repeats labels at different depths
 (``Floral > Floral``).
 """
+import hashlib
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -133,17 +135,76 @@ def test_schema_rejects_a_bad_file():
     assert len(messages) >= 2
 
 
-BRAND = re.compile(r"barista\s*hustle|\bBH\b|\bbh_", re.IGNORECASE)
+# Banned words are stored only as sha256 digests (controller ruling R11), so the
+# test file itself never spells them. Lower-cased tokens: the shop's number, a
+# store name, a staff name, and the two words of the third-party sheet's brand.
+BANNED_WORD_HASHES = frozenset({
+    "eed5fe88eedf687582e394a4afc70a7b8c6afbf20072c1a1d4a935ef5ef94640",
+    "04e408bf1c03e6b59a66baf572993522a2e512f4d3924cdeac537b5e77424323",
+    "b5a7d3c79084b8f59745ade726a5d9fa2112bca7e137d2a252b3c7ba06f2d2a0",
+    "ca03b861723f3bc73bc8a14f649bba1697d2340e282b1362cab61ee6945b2d1d",
+    "b01928cd61a0a26e091adcc564106156214bde4231d8f0c23e15ddb2c4cff04e",
+})
+# The old app's name is an ordinary word lower-cased, so only the exact capitalised
+# token is banned, matched case-sensitively.
+BANNED_EXACT_HASHES = frozenset({
+    "37bac4952becf21ac5838d3c9ba82811bc421c857571e89634dcbe346681d54c",
+})
+# (path, line number) pairs of reviewed false positives. Empty: none were found.
+EXACT_ALLOWLIST: frozenset = frozenset()
+SKIP_FILES = {"docs/spec.md", "docs/plan-phase1.md"}
+TOKEN = re.compile(r"[A-Za-z0-9]+")
+ABBREVIATION = re.compile(r"\bBH\b|\bbh_")
+
+
+def _digest(word: str) -> str:
+    return hashlib.sha256(word.encode()).hexdigest()
+
+
+def banned_tokens(text: str, words=BANNED_WORD_HASHES, exact=BANNED_EXACT_HASHES) -> list:
+    """(line, token) for every banned token in ``text``."""
+    hits = []
+    for number, line in enumerate(text.splitlines(), 1):
+        for token in TOKEN.findall(line):
+            if _digest(token.lower()) in words or _digest(token) in exact:
+                hits.append((number, token))
+    return hits
+
+
+def _project_files() -> list:
+    out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+                         cwd=ROOT, capture_output=True, text=True, check=True).stdout.split("\n")
+    return [ROOT / f for f in out if f and f not in SKIP_FILES and (ROOT / f).is_file()]
+
+
+def test_scanner_finds_and_ignores():
+    words, exact = {_digest("zebra")}, {_digest("Okapi")}
+    assert banned_tokens("a Zebra\nstripes, Okapi", words, exact) == [(1, "Zebra"), (2, "Okapi")]
+    assert banned_tokens("okapi and zebras and Counter", words, exact) == []
 
 
 def test_content_has_no_brand_strings():
     files = [p for p in CONTENT_DIR.rglob("*") if p.is_file()]
     assert files, "content directory is empty"
     for path in files:
-        assert not BRAND.search(path.read_text(encoding="utf-8")), path
+        text = path.read_text(encoding="utf-8")
+        assert not banned_tokens(text), path
+        assert not ABBREVIATION.search(text), path
 
 
-def test_source_has_no_brand_or_shop_strings():
-    pattern = re.compile(r"barista\s*hustle|\bBH\b|\bbh_|\b1369\b|Inman|Kelley", re.IGNORECASE)
-    for path in list((ROOT / "tasting").glob("*.py")) + list((ROOT / "content").rglob("*.json")):
-        assert not pattern.search(path.read_text(encoding="utf-8")), path
+def test_no_shop_or_brand_strings_anywhere():
+    files = _project_files()
+    assert len(files) > 30
+    offenders = []
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        rel = str(path.relative_to(ROOT))
+        for number, token in banned_tokens(text):
+            if (rel, number) not in EXACT_ALLOWLIST:
+                offenders.append((rel, number))
+        if ABBREVIATION.search(text):
+            offenders.append((rel, "abbreviation"))
+    assert offenders == []
