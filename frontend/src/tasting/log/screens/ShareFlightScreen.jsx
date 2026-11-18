@@ -37,7 +37,7 @@ export default function ShareFlightScreen({ draft, dispatch, memberId, onBack, o
   const created = !!draft.flightId;
   const f = draft.flight;
   // Advanced flights get the key on the Advanced host screen; showing it here too would put it on screen twice.
-  const mayKey = created && !!f?.is_blind && !!f.is_host && f.created_via !== 'device' && f.sheet !== 'advanced' && !isSharedDevice;
+  const mayKey = created && !!f?.is_blind && !!f.is_host && f.sheet !== 'advanced' && !isSharedDevice;
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
 
   const create = () => run(async () => {

@@ -207,9 +207,13 @@ describe('HostSetupScreen', () => {
     expect(screen.getByRole('button', { name: 'Label key…' })).toBeInTheDocument();
   });
 
+  it('still offers it to the hosting account when the flight was created on a device', () => {
+    setup(hostFlight({ created_via: 'device' }));
+    expect(screen.getByRole('button', { name: 'Label key…' })).toBeInTheDocument();
+  });
+
   it.each([
     ['a non-host editor', () => { auth.role = 'editor'; return hostFlight({ is_host: false }); }],
-    ['a device-created flight', () => hostFlight({ created_via: 'device' })],
     ['a shared device', () => { auth.role = 'device'; return hostFlight(); }],
     ['a sighted flight', () => hostFlight({ is_blind: false })],
   ])('hides the label key for %s', (_, make) => {
@@ -496,10 +500,13 @@ describe('ShareFlightScreen label key', () => {
     setup(basic());
     expect(key()).toBeInTheDocument();
   });
+  it('shows it to the hosting account even when the flight was created on a device', () => {
+    setup(basic({ created_via: 'device' }));
+    expect(key()).toBeInTheDocument();
+  });
   it.each([
     ['a non-host', () => basic({ is_host: false })],
     ['a non-blind flight', () => basic({ is_blind: false })],
-    ['a device-created flight', () => basic({ created_via: 'device' })],
     ['the shared device', () => { auth.role = 'device'; return basic(); }],
     ['a Advanced flight', () => basic({ sheet: 'advanced' })],
   ])('hides it on %s', (_, make) => {

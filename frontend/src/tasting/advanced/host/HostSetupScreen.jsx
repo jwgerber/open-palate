@@ -1,6 +1,6 @@
 /**
  * Host setup for a Advanced cupping, before the timer: the grams
- * calculator and the table checklist (spec §6.1). Ticks and the grams inputs
+ * calculator and the table checklist. Ticks and the grams inputs
  * are component state — nothing is saved, and leaving the screen resets them.
  */
 import { lazy, Suspense, useState } from 'react';
@@ -72,7 +72,7 @@ export default function HostSetupScreen({ flight, onBack, onOpenTimer, memberId,
   const [printing, setPrinting] = useState(false);
   const coffees = flight.cups?.length ?? 0;
   // The server is the authority; this only hides a control it would refuse.
-  const mayKey = !!flight.is_host && !!flight.is_blind && flight.created_via !== 'device' && !isSharedDevice;
+  const mayKey = !!flight.is_host && !!flight.is_blind && !isSharedDevice;
   const meta = [`${coffees} coffees`, flight.is_blind ? 'blind' : null, `${flight.logged_count ?? 0} logged`].filter(Boolean).join(' · ');
 
   return (
