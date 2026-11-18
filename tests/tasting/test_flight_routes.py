@@ -8,7 +8,7 @@ import pytest
 from extensions import db
 from identity.models import Member
 from tasting.enums import ADV_CATEGORIES
-from tasting.models import Tasting, TastingFlight
+from tasting.models import Tasting, TastingCoffee, TastingFlight
 from tests.tasting.helpers import make_flight, make_tasting
 from tests.tasting.world import World, adv_entry, entry
 
@@ -696,6 +696,51 @@ class TestGroupScoping:
             assert r.status_code == 404, (method, path, r.get_json())
         db_session.expire_all()
         assert db_session.query(Tasting).filter_by(flight_id=fid).count() == 1
+
+    def test_every_id_route_refuses_a_caller_from_another_group(self, world, cs, db_session):
+        """Walks the URL map, so a route added later is covered without editing this test:
+        every /api/tasting rule with a flight or coffee id, under every method, refuses a
+        caller from the other group (404, or 403 where the level gate fires first), leaks no
+        name from the target group, and changes nothing."""
+        flight_rules = {}
+        for rule in world.app.url_map.iter_rules():
+            if not rule.rule.startswith("/api/tasting/"):
+                continue
+            kind = ("flight" if "<int:flight_id>" in rule.rule
+                    else "coffee" if "<int:coffee_id>" in rule.rule else None)
+            for method in rule.methods - {"HEAD", "OPTIONS"}:
+                if kind:
+                    flight_rules[(method, rule.rule.replace("/api/tasting", ""))] = kind
+        assert len(flight_rules) >= 19, sorted(flight_rules)
+
+        def targets(group):
+            coffee = world.coffee(group, name=f"Hidden-{group.id}-Roast")
+            flight = make_flight(db_session, group, [coffee], sheet="advanced", adv_step=0.5,
+                                 prep="cupping", is_open=True)
+            make_tasting(db_session, flight, coffee, adv=8.0, taster_key="user:x")
+            db_session.commit()
+            return coffee, flight
+
+        def snapshot():
+            db_session.expire_all()
+            return (db_session.query(Tasting).count(), db_session.query(TastingFlight).count(),
+                    sorted((c.id, c.name, c.archived_at is None) for c in db_session.query(TastingCoffee)),
+                    sorted((f.id, f.is_open) for f in db_session.query(TastingFlight)))
+
+        hidden = {"cafe": targets(world.group), "elsewhere": targets(world.other)}
+        attempts = (("elsewhere", ("member", "editor", "admin", "device")), ("cafe", ("outsider",)))
+        for victim, callers in attempts:
+            coffee, flight = hidden[victim]
+            secret = f"Hidden-{(world.group if victim == 'cafe' else world.other).id}-Roast"
+            before = snapshot()
+            for who in callers:
+                for (method, rule), kind in sorted(flight_rules.items()):
+                    path = rule.replace("<int:flight_id>", str(flight.id)).replace("<int:coffee_id>", str(coffee.id))
+                    r = (world.get(who, path) if method == "GET"
+                         else world.send(who, method.lower(), path, json={}))
+                    assert r.status_code in (403, 404), (who, method, rule, r.status_code)
+                    assert secret not in r.get_data(as_text=True), (who, method, rule)
+            assert snapshot() == before, victim
 
     def test_flight_cannot_be_created_with_another_groups_coffee(self, world, cs, db_session):
         theirs = world.coffee(world.other, name="Theirs")

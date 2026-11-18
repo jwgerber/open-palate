@@ -56,6 +56,12 @@ def active_member_for_email(email: str) -> Member | None:
     ).scalar_one_or_none()
 
 
+def user_has_active_member(user: User) -> bool:
+    return db.session.execute(
+        db.select(Member.id).where(Member.user_id == user.id, Member.active.is_(True)).limit(1)
+    ).first() is not None
+
+
 def issue_signin_link(user: User) -> str:
     """Add a single-use sign-in token (the caller commits); return its link."""
     raw, digest = new_token()

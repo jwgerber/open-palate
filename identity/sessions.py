@@ -143,11 +143,19 @@ def _check_csrf():
     return None
 
 
+def _wants_csrf_cookie(response: Response) -> bool:
+    """Only API responses and the SPA's HTML page need it: the page loads first and
+    every later write is an /api call. Static files and /healthz do not."""
+    if request.path.startswith("/api/"):
+        return True
+    return request.endpoint in ("spa_index", "spa") and response.status_code == 200 and response.mimetype == "text/html"
+
+
 def _set_cookies(response: Response) -> Response:
     refresh = _request_state().pop("refresh", None)
     if refresh is not None:
         _set_session_cookie(response, *refresh)
-    if not request.cookies.get(CSRF_COOKIE):
+    if _wants_csrf_cookie(response) and not request.cookies.get(CSRF_COOKIE):
         response.set_cookie(CSRF_COOKIE, secrets.token_urlsafe(32), max_age=CSRF_COOKIE_MAX_AGE,
                             httponly=False, secure=secure_cookies(), samesite="Lax", path="/")
     return response

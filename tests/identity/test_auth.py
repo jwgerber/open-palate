@@ -34,9 +34,17 @@ def token_from(link: str) -> str:
     return parse_qs(urlparse(link).query)["token"][0]
 
 
-def add_user(email="owner@cafe.com", name="Owner"):
+def add_user(email="owner@cafe.com", name="Owner", member=True):
+    """A user; by default with an active member row, since a link goes only to those."""
     user = User(email=email, display_name=name)
     db.session.add(user)
+    db.session.flush()
+    if member:
+        group = Group(name=f"Group of {name}")
+        db.session.add(group)
+        db.session.flush()
+        db.session.add(Member(group_id=group.id, user_id=user.id, display_name=name,
+                              email=email, role="member"))
     db.session.commit()
     return user
 
@@ -205,8 +213,33 @@ def test_inactive_member_email_gets_no_link(client, db_session, sent):
     assert db_session.query(User).count() == 0
 
 
+def test_request_link_known_user_without_active_member_sends_nothing(client, app, db_session, sent):
+    # A user row left behind by a deactivated member, or made some other way, gets no link.
+    gone = add_user("gone@cafe.com", "Gone", member=False)
+    inactive = add_user("off@cafe.com", "Off")
+    db_session.query(Member).filter_by(user_id=inactive.id).update({"active": False})
+    db_session.commit()
+    for email in ("gone@cafe.com", "off@cafe.com"):
+        reply = request_link(client, email)
+        assert reply.status_code == 200 and reply.get_json() == {"status": "sent"}
+    assert sent == []
+    assert db_session.query(LoginToken).count() == 0
+    # ...unless sign-up is on, or an active roster row carries the address.
+    app.config["ALLOW_SIGNUP"] = True
+    request_link(client, "gone@cafe.com")
+    assert [to for to, _ in sent] == ["gone@cafe.com"]
+    app.config["ALLOW_SIGNUP"] = False
+    group = Group(name="Roster")
+    db_session.add(group)
+    db_session.flush()
+    db_session.add(Member(group_id=group.id, display_name="Off", email="off@cafe.com", role="member"))
+    db_session.commit()
+    request_link(client, "off@cafe.com")
+    assert [to for to, _ in sent] == ["gone@cafe.com", "off@cafe.com"]
+
+
 def test_consume_links_roster_member(client, db_session, sent):
-    user = add_user()
+    user = add_user(member=False)
     cafe, other = Group(name="Cafe", timezone="America/Chicago"), Group(name="Other")
     db_session.add_all([cafe, other])
     db_session.flush()
@@ -342,7 +375,7 @@ def test_request_link_survives_concurrent_user_insert(client, db_session, sent, 
 def test_current_session_bump_does_not_commit_callers_work(app, db_session):
     from identity.sessions import current_session
     from identity.tokens import new_token
-    user = add_user()
+    user = add_user(member=False)
     raw, digest = new_token()
     long_ago = utc_now() - timedelta(hours=2)
     db_session.add(Session(user_id=user.id, kind="user", token_hash=digest,
@@ -398,7 +431,7 @@ def test_setup_revokes_previous_browser_session(app, database_url, caplog, sent)
 
 
 def test_consume_does_not_link_inactive_member(client, db_session, sent):
-    add_user()
+    add_user()   # active in some other group, so a link is sent
     group = Group(name="Cafe")
     db_session.add(group)
     db_session.flush()
@@ -406,7 +439,7 @@ def test_consume_does_not_link_inactive_member(client, db_session, sent):
                           role="member", active=False))
     db_session.commit()
     sign_in(client, sent)
-    member = db_session.query(Member).one()
+    member = db_session.query(Member).filter_by(display_name="Owner", active=False).one()
     db_session.refresh(member)
     assert member.user_id is None
 

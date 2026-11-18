@@ -9,7 +9,7 @@ from extensions import db, limiter
 from identity import mail
 from identity.accounts import (active_member_for_email, admin_exists, default_display_name,
                                ensure_admin, find_user, issue_signin_link, link_roster_members,
-                               normalize_email, setup_token_valid)
+                               normalize_email, setup_token_valid, user_has_active_member)
 from identity.models import Group, LoginToken, Member, User
 from identity.sessions import current_session, end_session, start_user_session
 from identity.tokens import hash_token
@@ -58,7 +58,11 @@ def request_link():
 
     # Same reply whether or not the address is known: no account enumeration.
     user = find_user(email)
-    if user is None:
+    if user is not None and not (current_app.config.get("ALLOW_SIGNUP")
+                                 or user_has_active_member(user)
+                                 or active_member_for_email(email) is not None):
+        user = None   # a known user nobody has an active place for gets no link
+    elif user is None:
         member = active_member_for_email(email)
         if member is not None or current_app.config.get("ALLOW_SIGNUP"):
             user = _create_user_or_refind(email, member.display_name if member is not None

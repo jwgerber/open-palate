@@ -64,3 +64,17 @@ def test_direct_index_html_is_no_cache(web_client):
     response = web_client.get("/index.html")
     assert response.status_code == 200
     assert "no-cache" in response.headers["Cache-Control"]
+
+
+def _sets_csrf(response):
+    return any(h.startswith("tasting_csrf=") for h in response.headers.getlist("Set-Cookie"))
+
+
+@pytest.mark.parametrize("path", ["/", "/index.html", "/signin", "/api/auth/me"])
+def test_csrf_cookie_planted_on_the_page_and_the_api(web_client, path):
+    assert _sets_csrf(web_client.get(path))
+
+
+@pytest.mark.parametrize("path", ["/assets/app-abc123.js", "/assets/missing.js", "/healthz"])
+def test_csrf_cookie_not_planted_on_static_files(web_client, path):
+    assert not _sets_csrf(web_client.get(path))
