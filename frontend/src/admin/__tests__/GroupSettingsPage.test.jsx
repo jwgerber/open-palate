@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const refresh = vi.fn(() => Promise.resolve());
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ refresh }) }));
-const invalidateCoffees = vi.fn();
+const { invalidateCoffees } = vi.hoisted(() => ({ invalidateCoffees: vi.fn() }));
 vi.mock('../../tasting/tastingApi', () => ({ tastingApi: { invalidateCoffees } }));
 vi.mock('../../api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() } }));
 import api from '../../api';
