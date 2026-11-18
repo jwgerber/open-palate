@@ -44,10 +44,26 @@ function Shell({ children }) {
   );
 }
 
+function NoGroup() {
+  const { refresh } = useAuth();
+  const navigate = useNavigate();
+  const signOut = async () => { try { await api.post('/auth/logout'); } finally { await refresh(); navigate('/signin', { replace: true }); } };
+  return (
+    <Centered>
+      <Box sx={{ maxWidth: 420, p: 2, textAlign: 'center' }} data-testid="no-group">
+        <Typography variant="h1" sx={{ fontSize: 24, mb: 1 }}>You're not in a group yet</Typography>
+        <Typography color="text.secondary" sx={{ mb: 2 }}>Ask your café's admin to add your email, then sign in again.</Typography>
+        <Button onClick={signOut}>Sign out</Button>
+      </Box>
+    </Centered>
+  );
+}
+
 function Protected({ adminOnly = false, children }) {
-  const { kind, role, loading } = useAuth();
+  const { kind, role, group, loading } = useAuth();
   if (loading) return <Spinner />;
   if (!kind) return <Navigate to="/signin" replace />;
+  if (kind === 'user' && !group) return <NoGroup />;
   if (adminOnly && !(kind === 'user' && role === 'admin')) return <Navigate to="/" replace />;
   return <Shell>{children}</Shell>;
 }

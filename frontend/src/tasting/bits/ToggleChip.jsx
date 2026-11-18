@@ -1,4 +1,4 @@
-/** A MUI Chip used as a pressed/unpressed toggle (filters, process, stores). */
+/** A MUI Chip used as a pressed/unpressed toggle (filters, process). */
 import { Chip } from '@mui/material';
 
 export default function ToggleChip({ on, label, onClick, sx }) {

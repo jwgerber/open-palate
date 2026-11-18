@@ -3,8 +3,8 @@
  *
  * Usage:
  *   const cache = createCache(5 * 60 * 1000); // 5 minute TTL
- *   const data = await cache.get('employees', () => api.getEmployees());
- *   cache.invalidate('employees'); // Force next fetch
+ *   const data = await cache.get('coffees', () => api.get('/tasting/coffees'));
+ *   cache.invalidate('coffees'); // Force next fetch
  *   cache.invalidateAll(); // Clear everything
  */
 

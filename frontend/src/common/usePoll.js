@@ -1,11 +1,11 @@
 /**
  * Poll while `active`: one leading tick, then every `ms` — but never while
- * the tab is hidden (a reveal or a Today screen left open on the store iPad
+ * the tab is hidden (a reveal left open on a shared device
  * must not hit the API 720 times an hour), with a catch-up tick the moment
  * it is visible again. `tick` receives an `isLive()` guard for its async
  * continuation.
  *
- * Shared by Tasting (reveal roster) and Vendor Orders (Today refresh);
+ * Used by Tasting (reveal roster and live flight polls);
  * `tick` must be `useCallback`d by the caller — this effect re-fires
  * whenever `tick`'s identity changes.
  */

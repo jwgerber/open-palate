@@ -1,5 +1,5 @@
 /**
- * Pick coffees — multi-select in §5.7 order (on bar at this store · recent
+ * Pick coffees — multi-select in order (on bar · recent
  * cupping lots · somewhere else), then prep, then pour order.
  *
  * The picked box shows the POUR NUMBER; un-picking renumbers the rest. Pour

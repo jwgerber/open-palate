@@ -81,7 +81,7 @@ export default function FlightEditDialog({ open, flight, memberId, onSaved, onCl
         setSavedIds(key.cups.map((c) => c.coffee_id));
       })
       .catch((e) => { if (live) setError(apiErrorMessage(e, "Couldn't load this flight.")); });
-    // No store filter: an uploaded flight has no store, and a host may pour any coffee.
+    // A host may pour any coffee, so the list is unfiltered.
     tastingApi.getCoffees()
       .then((list) => {
         if (!live) return;

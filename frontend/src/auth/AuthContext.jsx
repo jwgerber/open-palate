@@ -4,7 +4,7 @@
  * it runs before any page that POSTs.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import api from '../api';
+import api, { setLastKind } from '../api';
 import { setGroupTimezone } from '../time';
 
 const AuthContext = createContext(null);
@@ -14,6 +14,7 @@ const SIGNED_OUT = { kind: null, user: null, group: null, role: null };
 function fromMe(body) {
   const group = body.groups?.[0] ?? null;
   setGroupTimezone(group?.timezone);
+  setLastKind(body.kind);
   return { kind: body.kind, user: body.user, group, role: group?.role ?? null };
 }
 

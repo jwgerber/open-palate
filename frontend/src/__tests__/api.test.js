@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import api, { readCsrfToken } from '../api';
 
 // Capture the request config instead of hitting the network.
@@ -31,5 +31,20 @@ describe('api', () => {
 
   it('reads no token when the cookie is absent', () => {
     expect(readCsrfToken()).toBeNull();
+  });
+});
+
+describe('api 401 redirect', () => {
+  it('goes back to /device when the last known kind was a device', async () => {
+    const { setLastKind } = await import('../api');
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', { configurable: true, value: { pathname: '/log', assign } });
+    api.defaults.adapter = async (config) => { const e = new Error('x'); e.config = config; e.response = { status: 401, config }; throw e; };
+    setLastKind('device');
+    await api.get('/tasting/coffees').catch(() => {});
+    expect(assign).toHaveBeenLastCalledWith('/device');
+    setLastKind('user');
+    await api.get('/tasting/coffees').catch(() => {});
+    expect(assign).toHaveBeenLastCalledWith('/signin');
   });
 });

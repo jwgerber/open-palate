@@ -167,7 +167,7 @@ export function RevealedCup({ cup }) {
           <ConsensusHeadline
             consensus={c}
             countLabel={plural(c.n, 'tasting')}
-            spreadSuffix=" staff"
+            spreadSuffix=" tasters"
             trailing={cup.yours && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Stars value={cup.yours.overall} size={16} />

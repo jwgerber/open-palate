@@ -2,6 +2,8 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const refresh = vi.fn(() => Promise.resolve());
+vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ refresh }) }));
 vi.mock('../../api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() } }));
 import api from '../../api';
 import GroupSettingsPage from '../GroupSettingsPage';
@@ -46,5 +48,30 @@ describe('GroupSettingsPage', () => {
     const row = (await screen.findByText('Robin Admin')).closest('div').parentElement;
     await userEvent.click(within(row).getAllByRole('switch')[0]);
     expect(await screen.findByText(/at least one active admin/i)).toBeInTheDocument();
+  });
+
+  it('saves a new time zone, refreshes the session, and explains a bad one', async () => {
+    api.patch.mockResolvedValueOnce({ data: { id: 1, name: 'Test Group', timezone: 'America/Chicago' } });
+    render(<GroupSettingsPage />);
+    const zone = await screen.findByLabelText('Time zone');
+    await userEvent.clear(zone);
+    await userEvent.type(zone, 'America/Chicago');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/group', { name: 'Test Group', timezone: 'America/Chicago' }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+
+    api.patch.mockRejectedValueOnce({ response: { status: 422, data: { error: 'bad_timezone', field: 'timezone' } } });
+    await userEvent.clear(zone);
+    await userEvent.type(zone, 'Mars/Base');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText(/isn't a time zone/i)).toBeInTheDocument();
+  });
+
+  it('explains a linked-member email change', async () => {
+    api.patch.mockRejectedValue({ response: { status: 409, data: { error: 'member_linked' } } });
+    render(<GroupSettingsPage />);
+    const row = (await screen.findByText('Robin Admin')).closest('div').parentElement;
+    await userEvent.click(within(row).getAllByRole('switch')[0]);
+    expect(await screen.findByText(/already signed in/i)).toBeInTheDocument();
   });
 });

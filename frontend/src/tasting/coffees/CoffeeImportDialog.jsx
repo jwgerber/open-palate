@@ -1,6 +1,5 @@
 /**
- * Preview-then-apply dialog for the coffee CSV import (the staff import's
- * shape: `admin/staff/StaffImportDialog.jsx`). The server returns a plan —
+ * Preview-then-apply dialog for the coffee CSV import. The server returns a plan —
  * new coffees, per-coffee field changes, warnings, errors, plan_hash — and
  * Apply re-sends the file with that hash, so a stale preview is refused (409)
  * instead of written.

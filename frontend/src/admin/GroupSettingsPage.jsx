@@ -3,30 +3,49 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, FormControlLabel, MenuItem, Paper, Switch, TextField, Typography,
 } from '@mui/material';
+import { Autocomplete } from '@mui/material';
 import api from '../api';
+import { useAuth } from '../auth/AuthContext';
 import { apiErrorMessage } from '../apiError';
 import { formatWhen, formatTime } from '../time';
 
+const browserZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
+const ZONES = (() => { try { return Intl.supportedValuesOf('timeZone'); } catch { return []; } })();
 const ROLES = ['member', 'editor', 'admin'];
 const ROLE_HELP = 'Member: taste and log. Editor: also manage coffees and paper sheets. Admin: also manage the group.';
 
 function GroupName({ group, onSaved }) {
+  const { refresh } = useAuth();
   const [name, setName] = useState(group.name);
+  // A group still on the UTC default starts from the browser's zone as a suggestion.
+  const [zone, setZone] = useState(group.timezone === 'UTC' ? browserZone() : group.timezone);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const changed = name !== group.name || zone !== group.timezone;
   const save = async () => {
     setError(null); setSaved(false);
-    try { const res = await api.patch('/group', { name }); onSaved(res.data); setSaved(true); }
-    catch (e) { setError(apiErrorMessage(e, "Couldn't save the name.")); }
+    try {
+      const res = await api.patch('/group', { name, timezone: zone });
+      onSaved(res.data); setSaved(true);
+      await refresh();
+    } catch (e) {
+      const code = e.response?.data?.error;
+      setError(code === 'bad_timezone' ? "That isn't a time zone the server knows. Pick one from the list." : apiErrorMessage(e, "Couldn't save the group."));
+    }
   };
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
       <Typography variant="h2" sx={{ fontSize: 18, mb: 1.5 }}>Group</Typography>
       {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
       {saved && <Alert severity="success" sx={{ mb: 1 }}>Saved.</Alert>}
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <TextField label="Group name" size="small" fullWidth value={name} onChange={(e) => setName(e.target.value)} />
-        <Button variant="contained" disabled={!name.trim() || name === group.name} onClick={save}>Save</Button>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <TextField label="Group name" size="small" sx={{ flex: 1, minWidth: 200 }} value={name} onChange={(e) => setName(e.target.value)} />
+        <Autocomplete
+          freeSolo size="small" sx={{ flex: 1, minWidth: 220 }} options={ZONES} value={zone}
+          onChange={(_e, v) => setZone(v ?? '')} onInputChange={(_e, v) => setZone(v)}
+          renderInput={(params) => <TextField {...params} label="Time zone" helperText="Times on sheets and flights show in this zone." />}
+        />
+        <Button variant="contained" disabled={!name.trim() || !zone.trim() || !changed} onClick={save}>Save</Button>
       </Box>
     </Paper>
   );
@@ -36,9 +55,12 @@ function MemberRow({ member, onChange, onError }) {
   const patch = async (changes) => {
     try { const res = await api.patch(`/group/members/${member.id}`, changes); onChange(res.data); }
     catch (e) {
-      onError(e.response?.data?.error === 'last_admin'
-        ? 'A group needs at least one active admin.'
-        : apiErrorMessage(e, "Couldn't update that member."));
+      const MESSAGES = {
+        last_admin: 'A group needs at least one active admin.',
+        member_linked: "This member has already signed in, so their email can't be changed here.",
+        email_in_use: 'That email already belongs to another member.',
+      };
+      onError(MESSAGES[e.response?.data?.error] ?? apiErrorMessage(e, "Couldn't update that member."));
     }
   };
   return (
