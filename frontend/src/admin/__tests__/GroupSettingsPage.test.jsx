@@ -74,4 +74,45 @@ describe('GroupSettingsPage', () => {
     await userEvent.click(within(row).getAllByRole('switch')[0]);
     expect(await screen.findByText(/already signed in/i)).toBeInTheDocument();
   });
+
+  it('leaves Save disabled on open; a name-only save sends no timezone', async () => {
+    api.patch.mockResolvedValue({ data: { id: 1, name: 'Renamed', timezone: 'UTC' } });
+    render(<GroupSettingsPage />);
+    const name = await screen.findByLabelText('Group name');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Renamed');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/group', { name: 'Renamed' }));
+  });
+
+  it('applies the suggested browser zone only when clicked', async () => {
+    const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({ timeZone: 'America/Denver' });
+    api.patch.mockResolvedValue({ data: { id: 1, name: 'Test Group', timezone: 'America/Denver' } });
+    render(<GroupSettingsPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Use America/Denver' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/group', { name: 'Test Group', timezone: 'America/Denver' }));
+    spy.mockRestore();
+  });
+
+  it('keeps the success when the session refresh fails afterwards', async () => {
+    refresh.mockRejectedValueOnce(new Error('net'));
+    api.patch.mockResolvedValue({ data: { id: 1, name: 'B', timezone: 'UTC' } });
+    render(<GroupSettingsPage />);
+    const name = await screen.findByLabelText('Group name');
+    await userEvent.clear(name);
+    await userEvent.type(name, 'B');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved.')).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't save/)).toBeNull();
+  });
+
+  it('explains an email already in use', async () => {
+    api.patch.mockRejectedValue({ response: { status: 409, data: { error: 'email_in_use' } } });
+    render(<GroupSettingsPage />);
+    const row = (await screen.findByText('Robin Admin')).closest('div').parentElement;
+    await userEvent.click(within(row).getAllByRole('switch')[0]);
+    expect(await screen.findByText(/already belongs to another member/i)).toBeInTheDocument();
+  });
 });

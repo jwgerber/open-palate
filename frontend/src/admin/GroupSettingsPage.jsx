@@ -17,21 +17,25 @@ const ROLE_HELP = 'Member: taste and log. Editor: also manage coffees and paper 
 function GroupName({ group, onSaved }) {
   const { refresh } = useAuth();
   const [name, setName] = useState(group.name);
-  // A group still on the UTC default starts from the browser's zone as a suggestion.
-  const [zone, setZone] = useState(group.timezone === 'UTC' ? browserZone() : group.timezone);
+  const [zone, setZone] = useState(group.timezone);
+  // A group still on the UTC default is offered the browser's zone, never applied unasked.
+  const suggestion = group.timezone === 'UTC' && browserZone() !== 'UTC' && zone !== browserZone() ? browserZone() : null;
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
   const changed = name !== group.name || zone !== group.timezone;
   const save = async () => {
     setError(null); setSaved(false);
+    const body = { name, ...(zone !== group.timezone ? { timezone: zone } : {}) };
     try {
-      const res = await api.patch('/group', { name, timezone: zone });
+      const res = await api.patch('/group', body);
       onSaved(res.data); setSaved(true);
-      await refresh();
     } catch (e) {
       const code = e.response?.data?.error;
       setError(code === 'bad_timezone' ? "That isn't a time zone the server knows. Pick one from the list." : apiErrorMessage(e, "Couldn't save the group."));
+      return;
     }
+    // The save worked; a failed session refresh only means the new zone shows after a reload.
+    try { await refresh(); } catch { /* keep the success message */ }
   };
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
@@ -43,7 +47,9 @@ function GroupName({ group, onSaved }) {
         <Autocomplete
           freeSolo size="small" sx={{ flex: 1, minWidth: 220 }} options={ZONES} value={zone}
           onChange={(_e, v) => setZone(v ?? '')} onInputChange={(_e, v) => setZone(v)}
-          renderInput={(params) => <TextField {...params} label="Time zone" helperText="Times on sheets and flights show in this zone." />}
+          renderInput={(params) => <TextField {...params} label="Time zone" helperText={suggestion
+            ? <>Times show in this zone. <Button size="small" onClick={() => setZone(suggestion)} sx={{ p: 0, minWidth: 0, textTransform: 'none' }}>Use {suggestion}</Button></>
+            : 'Times on sheets and flights show in this zone.'} />}
         />
         <Button variant="contained" disabled={!name.trim() || !zone.trim() || !changed} onClick={save}>Save</Button>
       </Box>
