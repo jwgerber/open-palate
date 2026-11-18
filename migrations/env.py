@@ -3,6 +3,7 @@
 The database URL is, in order: the ``sqlalchemy.url`` option when a caller set
 it (tests do), else the app's ``SQLALCHEMY_DATABASE_URI`` from ``create_app()``.
 """
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -23,8 +24,6 @@ def database_url() -> str:
     url = config.get_main_option("sqlalchemy.url")
     if url:
         return normalize_database_url(url)
-    import os
-
     from app import create_app
 
     os.environ["LOG_SETUP_LINK"] = "0"  # the server logs it, after migrating

@@ -17,8 +17,9 @@ COPY --from=frontend /build/dist ./frontend/dist
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /data \
     && chown -R app:app /data \
-    && chmod +x start.sh
-USER app
+    && chmod +x start.sh docker-entrypoint.sh
+# No USER line: the entrypoint starts as root to fix /data ownership, then runs
+# start.sh as uid 10001 (setpriv).
 VOLUME /data
 EXPOSE 8000
-CMD ["./start.sh"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

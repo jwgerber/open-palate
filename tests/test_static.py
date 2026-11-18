@@ -54,3 +54,13 @@ def test_path_traversal_blocked(web_client):
 def test_no_build_means_404(app, tmp_path):
     app.config["STATIC_DIR"] = str(tmp_path / "absent")
     assert app.test_client().get("/").status_code == 404
+
+
+def test_nul_byte_path_is_404(web_client):
+    assert web_client.get("/a%00b").status_code == 404
+
+
+def test_direct_index_html_is_no_cache(web_client):
+    response = web_client.get("/index.html")
+    assert response.status_code == 200
+    assert "no-cache" in response.headers["Cache-Control"]

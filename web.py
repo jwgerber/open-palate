@@ -30,12 +30,18 @@ def spa(path: str = ""):
     if path == "api" or path.startswith("api/"):
         abort(404)
     root = _static_dir()
-    candidate = (root / path).resolve()
-    if path and candidate.is_file() and candidate.is_relative_to(root.resolve()):
+    try:
+        candidate = (root / path).resolve()
+        servable = bool(path) and candidate.is_file() and candidate.is_relative_to(root.resolve())
+    except (ValueError, OSError):  # e.g. an embedded NUL byte
+        abort(404)
+    if servable:
         response = send_from_directory(root, path)
-        # Vite fingerprints everything under assets/, so it can be cached forever.
         if path.startswith("assets/"):
+            # Vite fingerprints everything under assets/, so it can be cached forever.
             response.headers["Cache-Control"] = f"public, max-age={ONE_YEAR}, immutable"
+        elif path == "index.html":
+            response.headers["Cache-Control"] = "no-cache"
         return response
     if path.startswith("assets/") or not (root / "index.html").is_file():
         abort(404)

@@ -16,6 +16,8 @@ docker run -d --name tasting -p 8000:8000 \
   ghcr.io/OWNER/open-palate:latest
 ```
 
+The app runs as uid 10001. On start the container fixes the ownership of `/data` itself, so a bind mount (`-v /srv/tasting:/data`) or a host disk that is owned by root works too. SQLite runs with write-ahead logging and one worker by default (set `WEB_CONCURRENCY` or `GUNICORN_THREADS` to change that).
+
 `BASE_URL` is the public address people will type, with no trailing slash. Every link the app builds (sign-in emails, QR codes, the setup link) comes from it. Put the container behind HTTPS (Caddy, a Cloudflare Tunnel, or a host such as Render or Fly.io). Check it with `curl http://localhost:8000/healthz`, which answers `{"ok":true}`.
 
 Environment variables:
@@ -73,7 +75,17 @@ SQLite: `flask backup` writes a consistent copy (safe while the app runs) to `/d
 
 The backups sit on the same disk as the data, so copy `/data/backups` off the machine as well.
 
-Restore: stop the container, put a backup at `/data/tasting.db`, start it again.
+Restore, with the container stopped (`docker stop tasting`). Copy the backup into the volume, remove the old write-ahead files, and hand the file to the app user (uid 10001):
+
+```sh
+docker run --rm -v tasting-data:/data -v "$PWD":/backup python:3.12-slim sh -c \
+  'cp /backup/tasting-YYYY-MM-DD.db /data/tasting.db \
+   && rm -f /data/tasting.db-wal /data/tasting.db-shm \
+   && chown 10001:10001 /data/tasting.db'
+docker start tasting
+```
+
+Leaving a stale `tasting.db-wal` or `-shm` beside a restored file can corrupt it, so always remove both.
 
 Postgres: use your database host's backups; `flask backup` refuses with exit status 2.
 
@@ -85,8 +97,6 @@ Postgres: use your database host's backups; `flask backup` refuses with exit sta
 Pin a version tag (`ghcr.io/OWNER/open-palate:v1.2.3`) instead of `latest` if you want to choose when you update.
 
 ## Deploy to Render
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 
 The blueprint in `render.yaml` runs the image as a web service with a 1 GB disk at `/data`, generates `SECRET_KEY`, and asks for `BASE_URL`. A disk needs a paid instance (the Starter plan, about $7 per month plus a little for the disk). Edit the `image.url` in `render.yaml` to your published image, and add registry credentials in Render while the package is private. Read the setup link from Render's logs.
 

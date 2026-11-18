@@ -62,3 +62,49 @@ def test_backup_postgres_refuses(tmp_path):
     result = app.test_cli_runner().invoke(args=["backup", str(tmp_path)])
     assert result.exit_code == 2
     assert "use your database host's backups" in result.output
+
+
+def test_backup_missing_database_fails_without_creating_one(tmp_path):
+    app = create_app({"TESTING": True, "SECRET_KEY": "x", "BASE_URL": "http://localhost",
+                      "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'absent.db'}"})
+    result = app.test_cli_runner().invoke(args=["backup", str(tmp_path / "b")])
+    assert result.exit_code != 0
+    assert not (tmp_path / "absent.db").exists()
+    assert not list((tmp_path / "b").glob("tasting-*.db"))
+
+
+def test_backup_leaves_no_temp_files(tmp_path):
+    app, _ = make_sqlite_app(tmp_path)
+    out = tmp_path / "b"
+    assert app.test_cli_runner().invoke(args=["backup", str(out)]).exit_code == 0
+    assert [p.name for p in out.iterdir()] == [f"tasting-{date.today().isoformat()}.db"]
+
+
+def test_backup_failure_keeps_existing_copy(tmp_path, monkeypatch):
+    app, _ = make_sqlite_app(tmp_path)
+    out = tmp_path / "b"
+    assert app.test_cli_runner().invoke(args=["backup", str(out)]).exit_code == 0
+    copy = out / f"tasting-{date.today().isoformat()}.db"
+    good = copy.read_bytes()
+
+    def boom(self, target):
+        target.execute("CREATE TABLE junk (x)")
+        raise sqlite3.OperationalError("disk full")
+
+    class Wrapper:
+        def __init__(self, real):
+            self.real = real
+
+        def backup(self, target):
+            boom(self, target)
+
+        def __getattr__(self, name):
+            return getattr(self.real, name)
+
+    real_connect = sqlite3.connect
+    monkeypatch.setattr("tasting_cli.sqlite3.connect",
+                        lambda *a, **k: Wrapper(real_connect(*a, **k)) if k.get("uri") else real_connect(*a, **k))
+    result = app.test_cli_runner().invoke(args=["backup", str(out)])
+    assert result.exit_code != 0
+    assert copy.read_bytes() == good
+    assert [p.name for p in out.iterdir()] == [copy.name]

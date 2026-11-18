@@ -6,6 +6,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import load_config, normalize_database_url
 from extensions import db, limiter
+import database
 import tasting_cli
 import web
 from identity import accounts, cli, log_redact, sessions
@@ -42,6 +43,7 @@ def create_app(config: dict | None = None) -> Flask:
     log_redact.install("werkzeug")
 
     db.init_app(app)
+    database.init_app(app)
     limiter.init_app(app)
     sessions.init_app(app)
     app.register_blueprint(auth_bp)
