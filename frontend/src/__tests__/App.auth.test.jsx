@@ -14,7 +14,10 @@ vi.mock('../tasting/useContent', () => ({ useContent: () => ({ ready: true, erro
 vi.mock('../tasting/TastingPage', () => ({ default: () => <div>TASTING-APP</div> }));
 vi.mock('../auth/SignInPage', () => ({ default: () => <div>SIGNIN-PAGE</div> }));
 vi.mock('../auth/DeviceCodePage', () => ({ default: () => <div>DEVICE-PAGE</div> }));
-vi.mock('../auth/SetupPage', () => ({ default: () => <div>SETUP-PAGE</div> }));
+vi.mock('../auth/SetupPage', async () => {
+  const { useAuth } = await import('../auth/AuthContext');
+  return { default: () => { const { setup } = useAuth(); return <div>{setup?.needed ? 'SETUP-FORM' : 'Setup is already done'}</div>; } };
+});
 import api from '../api';
 import { forgetLocalState } from '../tasting/forgetLocalState';
 import { AuthProvider } from '../auth/AuthContext';
@@ -23,11 +26,23 @@ import App from '../App';
 const group = { id: 1, name: 'G', timezone: 'UTC', role: 'member' };
 const me = (kind) => ({ data: { kind, user: kind === 'user' ? { id: 1 } : null, groups: [group] } });
 const unauthorized = { response: { status: 401 } };
-const mount = () => render(
-  <MemoryRouter initialEntries={['/']}><AuthProvider><App /></AuthProvider></MemoryRouter>,
+const mount = (path = '/') => render(
+  <MemoryRouter initialEntries={[path]}><AuthProvider><App /></AuthProvider></MemoryRouter>,
 );
 
-beforeEach(() => { vi.clearAllMocks(); lastKind = null; vi.spyOn(console, 'error').mockImplementation(() => {}); });
+const setupStatus = (data) => ({ data });
+// Default: setup is done. Tests queue `/auth/me` results with *Once; this answers the rest.
+const answerSetupStatus = (data) => api.get.mockImplementation((url) => (
+  url === '/auth/setup-status' ? Promise.resolve(setupStatus(data)) : Promise.reject(new Error(`unexpected GET ${url}`))
+));
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  lastKind = null;
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  answerSetupStatus({ needed: false });
+});
 
 describe('session load', () => {
   it('shows a retry screen, not the sign-in page, on a network error; retry recovers', async () => {
@@ -60,6 +75,37 @@ describe('session load', () => {
     api.get.mockRejectedValueOnce(unauthorized);
     mount();
     expect(await screen.findByText('DEVICE-PAGE')).toBeInTheDocument();
+  });
+});
+
+describe('first-run setup', () => {
+  it('sends every page to /setup while setup is needed, with no token in the URL', async () => {
+    api.get.mockRejectedValueOnce(unauthorized);
+    answerSetupStatus({ needed: true, open: true, password: false });
+    mount('/log');
+    expect(await screen.findByText('SETUP-FORM')).toBeInTheDocument();
+    expect(screen.queryByText('SIGNIN-PAGE')).toBeNull();
+  });
+
+  it('shows "Setup is already done" at /setup once an admin exists', async () => {
+    api.get.mockRejectedValueOnce(unauthorized);
+    mount('/setup');
+    expect(await screen.findByText(/setup is already done/i)).toBeInTheDocument();
+  });
+
+  it('falls through to sign-in, with a warning, when the status call fails', async () => {
+    api.get.mockRejectedValueOnce(unauthorized);
+    api.get.mockImplementation(() => Promise.reject(new Error('boom')));
+    mount('/');
+    expect(await screen.findByText('SIGNIN-PAGE')).toBeInTheDocument();
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('does not ask a signed-in user', async () => {
+    api.get.mockResolvedValueOnce(me('user'));
+    mount('/');
+    await screen.findByText('TASTING-APP');
+    expect(api.get).not.toHaveBeenCalledWith('/auth/setup-status');
   });
 });
 

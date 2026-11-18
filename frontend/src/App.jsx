@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   AppBar, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Toolbar, Typography, Alert,
 } from '@mui/material';
@@ -109,8 +109,10 @@ function Protected({ adminOnly = false, children }) {
 }
 
 export default function App() {
-  const { loading } = useAuth();
+  const { loading, setup } = useAuth();
+  const { pathname } = useLocation();
   if (loading) return <Spinner />;
+  if (setup?.needed && pathname !== '/setup') return <Navigate to="/setup" replace />;
   return (
     <Suspense fallback={<Spinner />}>
       <Routes>
