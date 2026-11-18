@@ -6,6 +6,7 @@ from alembic import command
 from alembic.config import Config
 
 import identity.models  # noqa: F401  (registers tables for the cleanup)
+import tasting.models  # noqa: F401  (ditto: the row wipe only covers imported tables)
 from app import create_app
 from extensions import db
 
