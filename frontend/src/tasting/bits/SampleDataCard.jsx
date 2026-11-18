@@ -21,6 +21,7 @@ export default function SampleDataCard({ onLoaded }) {
   const [empty, setEmpty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) return undefined;
@@ -28,7 +29,7 @@ export default function SampleDataCard({ onLoaded }) {
     // A failed check just means no card: the app works the same without it.
     tastingApi.getCoffees({ includeArchived: true })
       .then((d) => { if (live) setEmpty((d?.coffees ?? []).length === 0); })
-      .catch(() => {});
+      .catch((e) => console.warn('Sample data card: could not check for coffees', e));
     return () => { live = false; };
   }, [isAdmin]);
 
@@ -39,6 +40,7 @@ export default function SampleDataCard({ onLoaded }) {
     try {
       await api.post('/group/sample-data');
     } catch (e) {
+      if (e.response?.data?.error === 'already_loaded') setLoaded(true);
       setError(REFUSALS[e.response?.data?.error] ?? apiErrorMessage(e, "Couldn't load sample data."));
       setBusy(false);
       return;
@@ -56,7 +58,7 @@ export default function SampleDataCard({ onLoaded }) {
         Adds 5 example coffees and a finished blind flight tasted by three sample tasters. Remove it any time in Group settings.
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
-      <Button variant="outlined" onClick={load} disabled={busy} sx={{ minHeight: 44 }}>Load sample data</Button>
+      <Button variant="outlined" onClick={load} disabled={busy || loaded} sx={{ minHeight: 44 }}>Load sample data</Button>
     </Card>
   );
 }

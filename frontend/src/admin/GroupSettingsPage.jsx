@@ -7,6 +7,7 @@ import { Autocomplete } from '@mui/material';
 import api from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { apiErrorMessage } from '../apiError';
+import { tastingApi } from '../tasting/tastingApi';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { formatWhen, formatTime } from '../time';
 
@@ -66,7 +67,7 @@ const LINK_ERRORS = {
 // Sample members are read-only: the server refuses edits and sign-in links for them.
 function SampleMemberRow({ member }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+    <Box data-testid={`member-row-${member.id}`} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
       <Box sx={{ flex: 1, minWidth: 160 }}>
         <Typography sx={{ fontWeight: 600 }}>{member.display_name}</Typography>
       </Box>
@@ -257,10 +258,13 @@ function DeviceCodes() {
 function SampleData({ onRemoved }) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
   const remove = async () => {
-    setError(null);
+    setError(null); setBusy(true);
     try { await api.delete('/group/sample-data'); }
-    catch (e) { setError(apiErrorMessage(e, "Couldn't remove the sample data.")); return; }
+    catch (e) { setError(apiErrorMessage(e, "Couldn't remove the sample data.")); setBusy(false); return; }
+    // The coffee list is cached for a minute; the sample coffees must not linger in it.
+    tastingApi.invalidateCoffees();
     onRemoved();
   };
   return (
@@ -270,7 +274,7 @@ function SampleData({ onRemoved }) {
         Example coffees, tasters and a flight are loaded in this group.
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
-      <Button variant="outlined" color="error" onClick={() => setConfirming(true)}>Remove sample data</Button>
+      <Button variant="outlined" color="error" onClick={() => setConfirming(true)} disabled={busy}>Remove sample data</Button>
       <ConfirmDialog
         open={confirming} title="Remove sample data?" confirmLabel="Remove" confirmColor="error"
         message="Removes the sample coffees, tasters and flight. Real tastings stay."
@@ -292,7 +296,7 @@ export default function GroupSettingsPage() {
       <Typography variant="h1" sx={{ fontSize: 24, mb: 2 }}>Group settings</Typography>
       {error && <Alert severity="error">{error}</Alert>}
       {!group && !error && <CircularProgress />}
-      {group && <GroupName group={group} onSaved={setGroup} />}
+      {group && <GroupName group={group} onSaved={(g) => setGroup((prev) => ({ ...prev, ...g }))} />}
       {group?.sample_data && (
         <SampleData onRemoved={() => { setGroup((g) => ({ ...g, sample_data: false })); setMembersKey((k) => k + 1); }} />
       )}

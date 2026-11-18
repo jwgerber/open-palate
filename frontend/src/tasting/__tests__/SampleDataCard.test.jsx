@@ -37,6 +37,15 @@ describe('SampleDataCard', () => {
     await waitFor(() => expect(screen.queryByText('Explore with sample data')).toBeNull());
   });
 
+  it('warns and shows nothing when the emptiness check fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    tasting.getCoffees.mockRejectedValue(new Error('down'));
+    render(<SampleDataCard onLoaded={vi.fn()} />);
+    await waitFor(() => expect(warn).toHaveBeenCalled());
+    expect(screen.queryByText('Explore with sample data')).toBeNull();
+    warn.mockRestore();
+  });
+
   it.each(['member', 'editor', 'device'])('shows nothing to a %s', async (role) => {
     auth.role = role;
     render(<SampleDataCard onLoaded={vi.fn()} />);
@@ -63,6 +72,8 @@ describe('SampleDataCard', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Load sample data' }));
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(onLoaded).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Load sample data' })).toBeEnabled();
+    // already_loaded can't succeed on retry; not_empty could not either, but only already_loaded is known-final.
+    if (code === 'already_loaded') expect(screen.getByRole('button', { name: 'Load sample data' })).toBeDisabled();
+    else expect(screen.getByRole('button', { name: 'Load sample data' })).toBeEnabled();
   });
 });

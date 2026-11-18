@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const refresh = vi.fn(() => Promise.resolve());
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ refresh }) }));
+const invalidateCoffees = vi.fn();
+vi.mock('../../tasting/tastingApi', () => ({ tastingApi: { invalidateCoffees } }));
 vi.mock('../../api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() } }));
 import api from '../../api';
 import GroupSettingsPage from '../GroupSettingsPage';
@@ -221,6 +223,18 @@ describe('GroupSettingsPage', () => {
       expect(screen.queryByRole('button', { name: 'Remove sample data' })).toBeNull();
     });
 
+    it('keeps the Remove button after a rename (PATCH /group omits sample_data)', async () => {
+      withSample();
+      api.patch.mockResolvedValue({ data: { id: 1, name: 'Renamed', timezone: 'UTC' } });
+      render(<GroupSettingsPage />);
+      const name = await screen.findByLabelText('Group name');
+      await userEvent.clear(name);
+      await userEvent.type(name, 'Renamed');
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await screen.findByText('Saved.');
+      expect(screen.getByRole('button', { name: 'Remove sample data' })).toBeInTheDocument();
+    });
+
     it('confirms, then removes sample data and hides the button', async () => {
       withSample();
       api.delete.mockImplementation(() => {
@@ -233,6 +247,7 @@ describe('GroupSettingsPage', () => {
       expect(api.delete).not.toHaveBeenCalled();
       await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
       await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/group/sample-data'));
+      await waitFor(() => expect(invalidateCoffees).toHaveBeenCalled());
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove sample data' })).toBeNull());
       await waitFor(() => expect(screen.queryByText('Sample · Robin')).toBeNull());
     });
@@ -240,7 +255,7 @@ describe('GroupSettingsPage', () => {
     it('marks sample members "Sample" with no edit or sign-in actions', async () => {
       withSample();
       render(<GroupSettingsPage />);
-      const row = (await screen.findByText('Sample · Robin')).closest('div').parentElement;
+      const row = await screen.findByTestId('member-row-5');
       expect(within(row).getByText('Sample')).toBeInTheDocument();
       expect(within(row).queryByRole('button')).toBeNull();
       expect(within(row).queryByRole('combobox')).toBeNull();
