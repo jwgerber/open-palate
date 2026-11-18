@@ -14,10 +14,6 @@ vi.mock('../tasting/useContent', () => ({ useContent: () => ({ ready: true, erro
 vi.mock('../tasting/TastingPage', () => ({ default: () => <div>TASTING-APP</div> }));
 vi.mock('../auth/SignInPage', () => ({ default: () => <div>SIGNIN-PAGE</div> }));
 vi.mock('../auth/DeviceCodePage', () => ({ default: () => <div>DEVICE-PAGE</div> }));
-vi.mock('../auth/SetupPage', async () => {
-  const { useAuth } = await import('../auth/AuthContext');
-  return { default: () => { const { setup } = useAuth(); return <div>{setup?.needed ? 'SETUP-FORM' : 'Setup is already done'}</div>; } };
-});
 import api from '../api';
 import { forgetLocalState } from '../tasting/forgetLocalState';
 import { AuthProvider } from '../auth/AuthContext';
@@ -83,7 +79,8 @@ describe('first-run setup', () => {
     api.get.mockRejectedValueOnce(unauthorized);
     answerSetupStatus({ needed: true, open: true, password: false });
     mount('/log');
-    expect(await screen.findByText('SETUP-FORM')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Your name')).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.queryByText('SIGNIN-PAGE')).toBeNull();
   });
 
@@ -91,6 +88,8 @@ describe('first-run setup', () => {
     api.get.mockRejectedValueOnce(unauthorized);
     mount('/setup');
     expect(await screen.findByText(/setup is already done/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/signin');
+    expect(screen.queryByText(/isn't open from here/i)).toBeNull();
   });
 
   it('falls through to sign-in, with a warning, when the status call fails', async () => {
@@ -99,6 +98,13 @@ describe('first-run setup', () => {
     mount('/');
     expect(await screen.findByText('SIGNIN-PAGE')).toBeInTheDocument();
     expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('offers Retry at /setup when the status call failed and there is no token', async () => {
+    api.get.mockRejectedValueOnce(unauthorized);
+    api.get.mockImplementation(() => Promise.reject(new Error('boom')));
+    mount('/setup');
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
   it('does not ask a signed-in user', async () => {

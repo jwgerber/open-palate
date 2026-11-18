@@ -112,7 +112,7 @@ export default function App() {
   const { loading, setup } = useAuth();
   const { pathname } = useLocation();
   if (loading) return <Spinner />;
-  if (setup?.needed && pathname !== '/setup') return <Navigate to="/setup" replace />;
+  if (setup?.needed === true && pathname !== '/setup') return <Navigate to="/setup" replace />;
   return (
     <Suspense fallback={<Spinner />}>
       <Routes>

@@ -26,8 +26,18 @@ describe('SetupPage', () => {
   });
 
   it('refuses without a token', async () => {
+    setup = { needed: true, open: false, password: false };
     mount('/setup');
     expect(screen.getByRole('alert')).toHaveTextContent(/setup link/i);
+  });
+
+  it('offers Retry, not the closed copy, when the status check failed', async () => {
+    setup = { failed: true };
+    mount('/setup');
+    expect(screen.getByRole('alert')).toHaveTextContent(/couldn't check whether setup is open/i);
+    expect(screen.queryByText(/SETUP_PASSWORD/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(refresh).toHaveBeenCalled();
   });
 
   it('says setup is done on a 409', async () => {

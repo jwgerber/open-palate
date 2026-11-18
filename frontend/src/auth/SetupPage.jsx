@@ -32,7 +32,7 @@ export default function SetupPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  if (setup && !setup.needed) {
+  if (setup?.needed === false) {
     return (
       <Shell>
         <Typography sx={{ mb: 2 }}>Setup is already done.</Typography>
@@ -44,6 +44,15 @@ export default function SetupPage() {
   // A valid link works whatever `open` says; the password field only helps without one.
   const showPassword = !token && !setup?.open && Boolean(setup?.password);
   const canSetup = Boolean(token) || Boolean(setup?.open) || showPassword;
+  if (!canSetup && setup?.needed !== true) {
+    return (
+      <Shell>
+        <Alert severity="warning" action={<Button color="inherit" size="small" onClick={refresh}>Retry</Button>}>
+          Couldn't check whether setup is open. Try again.
+        </Alert>
+      </Shell>
+    );
+  }
   if (!canSetup) return <Shell><Alert severity="info">{CLOSED_COPY}</Alert></Shell>;
 
   const submit = async (ev) => {

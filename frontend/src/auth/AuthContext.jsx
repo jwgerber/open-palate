@@ -6,8 +6,9 @@
  * Only a 401 means signed out. Any other failure (network down, 5xx) sets
  * `error: true` and keeps what was known: a shared tablet must never be bounced
  * to a sign-in page it cannot use, because its device code is single-use.
- * `setup` is `{needed, open, password}` while no admin exists, else null; it is only
- * asked of a signed-out visitor.
+ * `setup` is the setup status (`{needed: true, open, password}`, `{needed: false}`, or
+ * `{failed: true}`); it is only asked of a signed-out visitor, and a signed-in user is
+ * known to be past setup. Null until known.
  * `refresh()` never rejects; it reports through the state.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -18,14 +19,17 @@ const AuthContext = createContext(null);
 
 const SIGNED_OUT = { kind: null, user: null, group: null, role: null, error: false, setup: null };
 
-/** Whether first-run setup is still open. A failed call must not lock the app out. */
+/**
+ * First-run setup status: the server's `{needed, open?, password?}`, or `{ failed: true }`
+ * when the call fails. A failure must not lock the app out, so it never counts as needed.
+ */
 async function loadSetupStatus() {
   try {
     const res = await api.get('/auth/setup-status');
-    return res.data?.needed ? res.data : null;
+    return res.data ?? { failed: true };
   } catch (err) {
     console.warn('Could not check setup status', err);
-    return null;
+    return { failed: true };
   }
 }
 
@@ -33,7 +37,7 @@ function fromMe(body) {
   const group = body.groups?.[0] ?? null;
   setGroupTimezone(group?.timezone);
   setLastKind(body.kind);
-  return { kind: body.kind, user: body.user, group, role: group?.role ?? null, setup: null };
+  return { kind: body.kind, user: body.user, group, role: group?.role ?? null, setup: { needed: false } };
 }
 
 export function AuthProvider({ children }) {
