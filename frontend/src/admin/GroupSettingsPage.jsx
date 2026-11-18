@@ -34,8 +34,8 @@ function GroupName({ group, onSaved }) {
       setError(code === 'bad_timezone' ? "That isn't a time zone the server knows. Pick one from the list." : apiErrorMessage(e, "Couldn't save the group."));
       return;
     }
-    // The save worked; a failed session refresh only means the new zone shows after a reload.
-    try { await refresh(); } catch { /* keep the success message */ }
+    // The save worked. refresh() never rejects; if it can't reach the server the new zone shows after a reload.
+    await refresh();
   };
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
@@ -58,8 +58,11 @@ function GroupName({ group, onSaved }) {
 }
 
 function MemberRow({ member, onChange, onError }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(member.display_name);
+  const [email, setEmail] = useState(member.email ?? '');
   const patch = async (changes) => {
-    try { const res = await api.patch(`/group/members/${member.id}`, changes); onChange(res.data); }
+    try { const res = await api.patch(`/group/members/${member.id}`, changes); onChange(res.data); return true; }
     catch (e) {
       const MESSAGES = {
         last_admin: 'A group needs at least one active admin.',
@@ -67,16 +70,37 @@ function MemberRow({ member, onChange, onError }) {
         email_in_use: 'That email already belongs to another member.',
       };
       onError(MESSAGES[e.response?.data?.error] ?? apiErrorMessage(e, "Couldn't update that member."));
+      return false;
     }
+  };
+  const startEdit = () => { setName(member.display_name); setEmail(member.email ?? ''); setEditing(true); };
+  const saveEdit = async () => {
+    const changes = {};
+    if (name.trim() !== member.display_name) changes.display_name = name.trim();
+    if (email.trim() !== (member.email ?? '')) changes.email = email.trim() || null;
+    if (Object.keys(changes).length === 0 || await patch(changes)) setEditing(false);
   };
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', py: 1, borderTop: '1px solid', borderColor: 'divider', opacity: member.active ? 1 : 0.6 }}>
-      <Box sx={{ flex: 1, minWidth: 160 }}>
-        <Typography sx={{ fontWeight: 600 }}>{member.display_name}</Typography>
-        <Typography variant="caption" color="text.secondary">
-          {member.email || 'No email (roster only)'}{member.email && !member.signed_up ? ' · not signed in yet' : ''}
-        </Typography>
-      </Box>
+      {editing ? (
+        <Box sx={{ flex: 1, minWidth: 220, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <TextField label="Name" size="small" value={name} onChange={(e) => setName(e.target.value)} />
+          <TextField
+            label="Email" size="small" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            disabled={member.signed_up} helperText={member.signed_up ? 'Signed in already; email is fixed.' : undefined}
+          />
+          <Button variant="contained" size="small" disabled={!name.trim()} onClick={saveEdit}>Save member</Button>
+          <Button size="small" onClick={() => setEditing(false)}>Cancel</Button>
+        </Box>
+      ) : (
+        <Box sx={{ flex: 1, minWidth: 160 }}>
+          <Typography sx={{ fontWeight: 600 }}>{member.display_name}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {member.email || 'No email (roster only)'}{member.email && !member.signed_up ? ' · not signed in yet' : ''}
+          </Typography>
+        </Box>
+      )}
+      {!editing && <Button size="small" onClick={startEdit} aria-label={`Edit ${member.display_name}`}>Edit</Button>}
       <TextField select size="small" label="Role" value={member.role} onChange={(e) => patch({ role: e.target.value })} sx={{ width: 120 }}>
         {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
       </TextField>

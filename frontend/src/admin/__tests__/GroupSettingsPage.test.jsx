@@ -96,8 +96,7 @@ describe('GroupSettingsPage', () => {
     spy.mockRestore();
   });
 
-  it('keeps the success when the session refresh fails afterwards', async () => {
-    refresh.mockRejectedValueOnce(new Error('net'));
+  it('shows Saved after a group save, since refresh() never rejects', async () => {
     api.patch.mockResolvedValue({ data: { id: 1, name: 'B', timezone: 'UTC' } });
     render(<GroupSettingsPage />);
     const name = await screen.findByLabelText('Group name');
@@ -105,6 +104,7 @@ describe('GroupSettingsPage', () => {
     await userEvent.type(name, 'B');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Saved.')).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/Couldn't save/)).toBeNull();
   });
 
@@ -114,5 +114,47 @@ describe('GroupSettingsPage', () => {
     const row = (await screen.findByText('Robin Admin')).closest('div').parentElement;
     await userEvent.click(within(row).getAllByRole('switch')[0]);
     expect(await screen.findByText(/already belongs to another member/i)).toBeInTheDocument();
+  });
+
+  describe('editing a member', () => {
+    it('renames a member with PATCH {display_name}', async () => {
+      api.patch.mockResolvedValue({ data: { ...members[1], display_name: 'Joanna Floor' } });
+      render(<GroupSettingsPage />);
+      await userEvent.click(await screen.findByRole('button', { name: 'Edit Jo Floor' }));
+      const name = screen.getAllByLabelText('Name')[0];
+      await userEvent.clear(name);
+      await userEvent.type(name, 'Joanna Floor');
+      await userEvent.click(screen.getByRole('button', { name: 'Save member' }));
+      await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/group/members/2', { display_name: 'Joanna Floor' }));
+      expect(await screen.findByText('Joanna Floor')).toBeInTheDocument();
+    });
+
+    it('adds an email with PATCH {email}', async () => {
+      api.patch.mockResolvedValue({ data: { ...members[1], email: 'jo@example.test' } });
+      render(<GroupSettingsPage />);
+      await userEvent.click(await screen.findByRole('button', { name: 'Edit Jo Floor' }));
+      await userEvent.type(screen.getByLabelText('Email'), 'jo@example.test');
+      await userEvent.click(screen.getByRole('button', { name: 'Save member' }));
+      await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/group/members/2', { email: 'jo@example.test' }));
+    });
+
+    it('disables the email of a member who has signed in', async () => {
+      render(<GroupSettingsPage />);
+      await userEvent.click(await screen.findByRole('button', { name: 'Edit Robin Admin' }));
+      expect(screen.getByLabelText('Email')).toBeDisabled();
+      expect(screen.getByText(/email is fixed/i)).toBeInTheDocument();
+    });
+
+    it('shows the member_linked and email_in_use messages', async () => {
+      render(<GroupSettingsPage />);
+      await userEvent.click(await screen.findByRole('button', { name: 'Edit Jo Floor' }));
+      await userEvent.type(screen.getByLabelText('Email'), 'x@example.test');
+      api.patch.mockRejectedValueOnce({ response: { status: 409, data: { error: 'member_linked' } } });
+      await userEvent.click(screen.getByRole('button', { name: 'Save member' }));
+      expect(await screen.findByText(/already signed in/i)).toBeInTheDocument();
+      api.patch.mockRejectedValueOnce({ response: { status: 409, data: { error: 'email_in_use' } } });
+      await userEvent.click(screen.getByRole('button', { name: 'Save member' }));
+      expect(await screen.findByText(/already belongs to another member/i)).toBeInTheDocument();
+    });
   });
 });
