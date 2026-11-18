@@ -82,24 +82,32 @@ def test_group_reports_sample_data(w):
 
 
 def test_remove_deletes_only_sample_rows(w):
-    real = w.coffee()
-    real_id = real.id
-    # A real coffee blocks loading, so load first, then add real rows.
-    db.session.delete(real)
-    db.session.commit()
     load(w)
     real_coffee = w.coffee(name="Real one")
     real_member = w.roster_only("Real Person")
+    assert w.solo([real_coffee], who="member").status_code == 201
     r = remove(w)
     assert r.status_code == 200
     assert r.get_json() == {"flights": 1, "members": 3, "coffees": 5, "kept_coffees": 0}
     assert db.session.get(TastingCoffee, real_coffee.id) is not None
     assert db.session.get(Member, real_member.id) is not None
-    assert real_id
+    assert TastingFlight.query.filter_by(is_sample=False).count() == 1
+    assert Tasting.query.count() == 1
     assert not TastingFlight.query.filter_by(is_sample=True).count()
     assert not Member.query.filter_by(is_sample=True).count()
     assert not TastingCoffee.query.filter_by(is_sample=True).count()
-    assert Tasting.query.count() == 0
+
+
+def test_remove_keeps_sample_coffee_in_a_real_open_flight(w):
+    load(w)
+    sample = TastingCoffee.query.filter_by(group_id=gid(w)).first()
+    sample_id = sample.id
+    fid = w.open_flight([sample], who="member")
+    out = remove(w).get_json()
+    assert out["kept_coffees"] == 1 and out["coffees"] == 4
+    assert db.session.get(TastingCoffee, sample_id).is_sample is False
+    flight = db.session.get(TastingFlight, fid)
+    assert flight is not None and [fc.coffee_id for fc in flight.coffees] == [sample_id]
 
 
 def test_remove_keeps_sample_coffee_with_a_real_tasting(w):
@@ -115,12 +123,14 @@ def test_remove_keeps_sample_coffee_with_a_real_tasting(w):
     assert Tasting.query.filter_by(coffee_id=sample_id).count() == 1
 
 
-def test_sample_reads_not_in_admin_palate(w):
+def test_sample_reads_not_in_palates(w):
     load(w)
-    r = w.get("admin", "/palate")
-    assert r.status_code == 200
-    body = r.get_json()
-    assert body["tastings"] == 0 and body["coffees_tasted"] == []
+    sample = TastingCoffee.query.filter_by(group_id=gid(w)).first()
+    assert w.solo([sample], who="member", entries=[entry(sample.id)]).status_code == 201
+    admin = w.get("admin", "/palate").get_json()
+    assert admin["tastings"] == 0 and admin["coffees_tasted"] == []
+    mine = w.get("member", "/palate").get_json()
+    assert mine["tastings"] == 1 and mine["coffees"] == 1
 
 
 def test_remove_when_nothing_loaded_is_a_noop(w):

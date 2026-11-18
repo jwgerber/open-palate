@@ -296,9 +296,6 @@ def post_sample_data():
     except SampleDataError as exc:
         db.session.rollback()
         return jsonify({"error": exc.code}), 409
-    except Exception:
-        db.session.rollback()
-        raise
     db.session.commit()
     return jsonify(counts), 201
 
@@ -308,10 +305,6 @@ def post_sample_data():
 @handle_db_errors("Could not remove the sample data")
 def delete_sample_data():
     admin = current_actor()
-    try:
-        counts = remove_sample_data(admin.group_id)
-    except Exception:
-        db.session.rollback()
-        raise
+    counts = remove_sample_data(admin.group_id)
     db.session.commit()
     return jsonify(counts)
