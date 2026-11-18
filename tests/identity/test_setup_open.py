@@ -40,9 +40,9 @@ def get_status(app, peer):
 
 def test_is_private_ranges():
     for addr in ("127.0.0.1", "::1", "10.1.2.3", "172.16.0.1", "172.31.255.255",
-                 "192.168.1.5", "fd00::1", "fe80::1"):
+                 "192.168.1.5", "fd00::1", "fe80::1", "::ffff:127.0.0.1"):
         assert is_private(addr), addr
-    for addr in ("172.32.0.1", "8.8.8.8", "2001:4860::1", None, "garbage"):
+    for addr in ("172.32.0.1", "8.8.8.8", "2001:4860::1", None, "garbage", "::ffff:8.8.8.8"):
         assert not is_private(addr), addr
 
 
@@ -125,3 +125,10 @@ def test_password_never_logged(app, database_url, caplog):
         post_setup(setup_app, "203.0.113.9", forwarded="203.0.113.9", setup_password="hunter22")
     assert "hunter22" not in caplog.text
     assert "guess-me" not in caplog.text
+
+
+def test_setup_is_rate_limited(app, database_url):
+    setup_app = make_app(database_url, SETUP_PASSWORD="hunter22")
+    codes = [post_setup(setup_app, "203.0.113.9", forwarded="203.0.113.9",
+                        setup_password=f"guess{i}").status_code for i in range(6)]
+    assert codes == [400] * 5 + [429]

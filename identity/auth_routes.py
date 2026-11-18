@@ -111,6 +111,7 @@ def consume():
 
 
 @auth_bp.post("/setup")
+@limiter.limit("5/minute")
 @handle_db_errors("Could not finish setup")
 def setup():
     data, error = get_json_object()

@@ -41,6 +41,7 @@ def app(database_url):
         "TESTING": True,
         "SECRET_KEY": "test-secret",
         "BASE_URL": "http://localhost",
+        "IN_CONTAINER": True,  # open setup must be opted into
         "SQLALCHEMY_DATABASE_URI": database_url,
     })
     yield app
