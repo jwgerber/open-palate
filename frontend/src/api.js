@@ -22,6 +22,7 @@ export function onPublicPage() {
 let lastKind = null;
 /** AuthProvider records who was signed in, so a 401 can go back to the right door. */
 export const setLastKind = (kind) => { lastKind = kind; };
+export const getLastKind = () => lastKind;
 
 const api = axios.create({ baseURL: '/api', withCredentials: true });
 
