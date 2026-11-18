@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlparse
 
 from extensions import db
 from identity.accounts import issue_signin_link
-from identity.models import LoginToken, Member, User
+from identity.models import LoginToken, Member, Session, User
 from tests.identity.helpers import make_group, make_member, sign_in
 from utils import utc_now
 
@@ -46,7 +46,7 @@ def test_admin_gets_a_24h_link(app, db_session):
     token = db.session.execute(db.select(LoginToken).order_by(LoginToken.id.desc())).scalars().first()
     assert token.purpose == "signin"
     assert abs((token.expires_at - utc_now()) - timedelta(hours=24)) < timedelta(minutes=1)
-    assert body["expires_at"] == token.expires_at.isoformat()
+    assert body["expires_at"] == token.expires_at.isoformat() + "+00:00"
     redeemed = consume(app, body["link"])
     assert redeemed.status_code == 302 and redeemed.headers["Location"].endswith("/")
     assert redeemed.headers.get("Set-Cookie")
@@ -121,3 +121,35 @@ def test_link_not_logged(app, db_session, caplog):
     assert len(records) == 1
     assert records[0].admin_member_id == admin_member.id
     assert records[0].target_member_id == member.id
+    assert records[0].expires_at.endswith("+00:00")
+
+
+def test_user_in_another_group_is_refused(app, db_session):
+    group, _, client, headers = setup_admin(app)
+    other_user, _ = make_member(make_group("Other"), "robin@cafe.com", "admin")
+    other_client = app.test_client()
+    sign_in(other_client, other_user)
+    row = add_roster_member(group, "robin@cafe.com")
+    tokens_before = db.session.execute(db.select(LoginToken)).scalars().all()
+    response = copy_link(client, headers, row)
+    assert response.status_code == 409 and response.get_json() == {"error": "other_group"}
+    assert db.session.execute(db.select(LoginToken)).scalars().all() == tokens_before
+    assert db.session.get(Member, row.id).user_id is None
+    live = db.session.execute(db.select(Session).where(
+        Session.user_id == other_user.id, Session.revoked_at.is_(None))).scalars().all()
+    assert len(live) == 1
+    assert other_client.get("/api/auth/me").status_code == 200
+
+
+def test_member_that_cannot_link_is_refused(app, db_session):
+    group, _, client, headers = setup_admin(app)
+    # The user already holds a row in this group under another email, so the
+    # roster row with the user's email cannot be linked (one row per group).
+    user, held = make_member(group, "first@cafe.com")
+    user.email = "robin@cafe.com"
+    db.session.commit()
+    row = add_roster_member(group, "robin@cafe.com")
+    tokens_before = db.session.execute(db.select(LoginToken)).scalars().all()
+    response = copy_link(client, headers, row)
+    assert response.status_code == 409 and response.get_json() == {"error": "not_linked"}
+    assert db.session.execute(db.select(LoginToken)).scalars().all() == tokens_before

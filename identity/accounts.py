@@ -1,7 +1,7 @@
 """Account helpers shared by the auth routes, the CLI and app start-up."""
 import logging
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from flask import current_app
 from itsdangerous import BadSignature, URLSafeTimedSerializer
@@ -63,8 +63,9 @@ def user_has_active_member(user: User) -> bool:
     ).first() is not None
 
 
-def issue_signin_link(user: User, ttl: timedelta = LINK_TTL, supersede: bool = False) -> str:
-    """Add a single-use sign-in token (the caller commits); return its link.
+def issue_signin_link_expiring(user: User, ttl: timedelta = LINK_TTL,
+                               supersede: bool = False) -> tuple[str, datetime]:
+    """Add a single-use sign-in token (the caller commits); return (link, expires_at).
 
     With `supersede`, the user's other unused sign-in tokens are marked used so
     only this newest link works."""
@@ -76,9 +77,15 @@ def issue_signin_link(user: User, ttl: timedelta = LINK_TTL, supersede: bool = F
                    LoginToken.used_at.is_(None))
             .values(used_at=now))
     raw, digest = new_token()
+    expires_at = now + ttl
     db.session.add(LoginToken(user_id=user.id, token_hash=digest, purpose="signin",
-                              expires_at=now + ttl))
-    return f"{current_app.config['BASE_URL']}/api/auth/consume?token={raw}"
+                              expires_at=expires_at))
+    return f"{current_app.config['BASE_URL']}/api/auth/consume?token={raw}", expires_at
+
+
+def issue_signin_link(user: User, ttl: timedelta = LINK_TTL, supersede: bool = False) -> str:
+    """Like issue_signin_link_expiring, returning only the link."""
+    return issue_signin_link_expiring(user, ttl, supersede)[0]
 
 
 def link_roster_members(user: User) -> None:

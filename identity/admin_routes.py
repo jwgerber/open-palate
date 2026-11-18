@@ -1,5 +1,6 @@
 """/api/group: group settings, roster and device codes. Group admins only."""
 import logging
+from datetime import timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Blueprint, jsonify
@@ -8,10 +9,10 @@ from sqlalchemy.exc import IntegrityError
 
 from extensions import db
 from identity.access import current_actor, require
-from identity.accounts import (ADMIN_LINK_TTL, DEVICE_CODE_TTL, get_or_create_user,
-                               issue_signin_link, link_roster_members, new_device_code,
+from identity.accounts import (ADMIN_LINK_TTL, DEVICE_CODE_TTL, find_user, get_or_create_user,
+                               issue_signin_link_expiring, link_roster_members, new_device_code,
                                normalize_email)
-from identity.models import DeviceCode, Group, LoginToken, Member, Session
+from identity.models import DeviceCode, Group, Member, Session
 from identity.tokens import hash_token
 from utils import get_json_object, handle_db_errors, utc_now
 
@@ -199,20 +200,29 @@ def copy_signin_link(member_id: int):
     email = normalize_email(member.email)
     if email is None:
         return jsonify({"error": "no_email"}), 409
+    existing = find_user(email)
+    if existing is not None and db.session.execute(
+            db.select(Member.id).where(Member.user_id == existing.id,
+                                       Member.group_id != admin.group_id).limit(1)
+    ).first() is not None:
+        # An account that belongs to another group must never be signed into
+        # from here: the link would hand that group's session to this admin.
+        return jsonify({"error": "other_group"}), 409
     # The admin vouches for this member, so the account is made even when
     # ALLOW_SIGNUP is off.
-    user = get_or_create_user(email, member.display_name)
+    user = existing or get_or_create_user(email, member.display_name)
     link_roster_members(user)
-    link = issue_signin_link(user, ttl=ADMIN_LINK_TTL, supersede=True)
-    expires_at = db.session.execute(
-        db.select(LoginToken.expires_at).where(LoginToken.user_id == user.id)
-        .order_by(LoginToken.id.desc()).limit(1)).scalar_one()
+    if member.user_id != user.id:
+        db.session.rollback()
+        return jsonify({"error": "not_linked"}), 409
+    link, expires_at = issue_signin_link_expiring(user, ttl=ADMIN_LINK_TTL, supersede=True)
     db.session.commit()
+    expires_iso = expires_at.replace(tzinfo=timezone.utc).isoformat()
     # Never log the link or token.
     logger.info("Sign-in link copied", extra={"admin_member_id": admin.member_id,
                                               "target_member_id": member.id,
-                                              "expires_at": expires_at.isoformat()})
-    return jsonify({"link": link, "expires_at": expires_at.isoformat()})
+                                              "expires_at": expires_iso})
+    return jsonify({"link": link, "expires_at": expires_iso})
 
 
 @admin_bp.post("/device-codes")
