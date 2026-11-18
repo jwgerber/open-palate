@@ -16,7 +16,7 @@
 - No new runtime dependency (backend or frontend).
 - Every new route goes through the existing access layer: `@require("admin")` for admin routes; the public auth routes are rate-limited like `request_link` (`@limiter.limit("5/minute")`, or a looser `"30/minute"` for the read-only status route).
 - Never log or return a sign-in token, setup password or secret key except the one response that issues a link.
-- Shop, staff and Count names stay out of every file; `frontend/src/__tests__/noBannedStrings.test.js` and the backend name scan must pass.
+- The original app's name and any shop or staff names stay out of every file; `frontend/src/__tests__/noBannedStrings.test.js` and the backend name scan must pass.
 - Sample roaster and coffee names are invented; no real company.
 - **Ruling (route prefix):** the spec writes `/api/admin/...`; the admin blueprint's prefix is `/api/group`, so the new admin routes are `/api/group/members/<id>/signin-link` and `/api/group/sample-data`.
 - Each task ends with the whole backend suite (`.venv/bin/python -m pytest -q`) and/or `cd frontend && npx vitest run` green, and one commit.

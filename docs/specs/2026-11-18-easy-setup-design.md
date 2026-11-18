@@ -172,7 +172,7 @@ Recent flights show it.
 - New routes gated through the existing access layer (`require("admin")` for admin routes).
 - No new runtime dependency.
 - Tests on SQLite and Postgres; the migration runs from empty in the migration tests.
-- Shop, staff and Count names stay out of every file (the hashed name scan must pass).
+- The original app's name and any shop or staff names stay out of every file (the hashed name scan must pass).
 
 ## Left to the builder
 
