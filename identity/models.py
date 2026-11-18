@@ -104,5 +104,7 @@ class DeviceCode(db.Model):
     code_hash = db.Column(db.String(64), nullable=False, unique=True)
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now,
+                           server_default=sa.func.current_timestamp())
     used_at = db.Column(db.DateTime)
     revoked_at = db.Column(db.DateTime)

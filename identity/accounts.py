@@ -50,7 +50,8 @@ def get_or_create_user(email: str, display_name: str) -> User:
 
 def active_member_for_email(email: str) -> Member | None:
     return db.session.execute(
-        db.select(Member).where(func.lower(Member.email) == email, Member.active.is_(True))
+        db.select(Member).where(func.lower(Member.email) == email, Member.active.is_(True),
+                                Member.user_id.is_(None))
         .order_by(Member.id).limit(1)
     ).scalar_one_or_none()
 

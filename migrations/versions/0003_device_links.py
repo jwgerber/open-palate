@@ -4,7 +4,7 @@ Revision ID: 0003
 Revises: 0002
 Create Date: 2026-11-18
 
-``device_codes.used_at`` marks single use without touching ``revoked_at`` (a used
+``device_codes.created_at`` backs the admin list; ``device_codes.used_at`` marks single use without touching ``revoked_at`` (a used
 code must stay revocable). ``sessions.device_code_id`` lets revoking a code end
 every device session it created.
 """
@@ -19,6 +19,8 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("device_codes") as batch:
+        batch.add_column(sa.Column("created_at", sa.DateTime(), nullable=False,
+                                   server_default=sa.func.current_timestamp()))
         batch.add_column(sa.Column("used_at", sa.DateTime(), nullable=True))
     with op.batch_alter_table("sessions") as batch:
         batch.add_column(sa.Column("device_code_id", sa.Integer(), nullable=True))
@@ -34,3 +36,4 @@ def downgrade() -> None:
         batch.drop_column("device_code_id")
     with op.batch_alter_table("device_codes") as batch:
         batch.drop_column("used_at")
+        batch.drop_column("created_at")

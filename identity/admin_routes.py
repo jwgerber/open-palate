@@ -164,6 +164,10 @@ def patch_member(member_id: int):
         email, ok = _email_value(data["email"])
         if not ok:
             return _field_error("Enter a valid email address", "email")
+        if email != member.email and member.user_id is not None:
+            # Member.email must keep matching the linked User.email; there is no
+            # unlink route in Phase 1.
+            return jsonify({"error": "member_linked", "field": "email"}), 409
         changes["email"] = email
     if "role" in data:
         if data["role"] not in ROLES:
@@ -201,6 +205,24 @@ def create_device_code():
     db.session.commit()
     # The only time the plain code exists: only its hash is stored.
     return jsonify({"id": row.id, "code": code, "expires_at": row.expires_at.isoformat()}), 201
+
+
+@admin_bp.get("/device-codes")
+@handle_db_errors("Could not load device codes")
+def list_device_codes():
+    _, admin = _require_group_admin()
+    now = utc_now()
+    live = (db.select(func.count(Session.id))
+            .where(Session.device_code_id == DeviceCode.id, Session.revoked_at.is_(None),
+                   Session.expires_at > now).scalar_subquery())
+    rows = db.session.execute(
+        db.select(DeviceCode, live).where(DeviceCode.group_id == admin.group_id)
+        .order_by(DeviceCode.created_at.desc(), DeviceCode.id.desc())).all()
+    return jsonify([{"id": c.id, "created_at": c.created_at.isoformat(),
+                     "expires_at": c.expires_at.isoformat(),
+                     "used_at": c.used_at.isoformat() if c.used_at else None,
+                     "revoked_at": c.revoked_at.isoformat() if c.revoked_at else None,
+                     "active_sessions": n} for c, n in rows])
 
 
 @admin_bp.delete("/device-codes/<int:code_id>")
