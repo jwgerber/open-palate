@@ -438,7 +438,8 @@ describe('HostTimerScreen', () => {
 describe('routing through FlightDialog', () => {
   function Harness({ flight, screenName = 'entry', flightId = 9 }) {
     const [draft, rawDispatch] = useReducer(reducer, null,
-      () => ({ ...reducer(initialDraft(), { type: 'seedFromFlight', flight }), screen: screenName, flightId }));
+      () => ({ ...reducer(initialDraft(), { type: 'seedFromFlight', flight }), screen: screenName, flightId,
+        who: { id: 9, name: 'Maya' } }));   // a device host has always named themselves
     const dispatch = useCallback((a) => rawDispatch(a), []);
     return <FlightDialog draft={draft} dispatch={dispatch} onDone={() => {}} />;
   }

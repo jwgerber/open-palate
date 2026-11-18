@@ -239,12 +239,21 @@ export default function FlightDialog({ draft, dispatch, onDone, restored = false
   }, [flightId, memberId, dispatch, timerStartedAt, advancedPass, isOpen, loggedCount, rosterSize]);
   usePoll(live, liveTick, LIVE_POLL_MS);
 
+  // A shared device must name its taster before it scores, logs or reviews. Joining a flight
+  // (link, invite card) or resuming a draft seeds the entry screen without one, so ask here;
+  // the screen the join would have shown stays put and appears once a name is picked.
+  const needsWho = !isPerson && !draft.who && !draft.logged
+    && ['entry', 'hostSetup', 'hostTimer', 'review'].includes(draft.screen);
+
   let body;
-  switch (draft.screen) {
+  switch (needsWho ? 'who' : draft.screen) {
     case 'who':
       body = (
         <WhoScreen onClose={requestClose}
-          onPick={(person) => { dispatch({ type: 'who', who: person }); go('picker'); }} />
+          onPick={(person) => {
+            dispatch({ type: 'who', who: person });
+            if (draft.screen === 'who') go('picker');   // fresh start; a join keeps its own screen
+          }} />
       );
       break;
     case 'picker':
