@@ -1,40 +1,20 @@
 """/api/group: group settings, roster and device codes. Group admins only."""
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Blueprint, abort, jsonify, make_response
+from flask import Blueprint, jsonify
 from sqlalchemy import func, update
 from sqlalchemy.exc import IntegrityError
 
 from extensions import db
+from identity.access import current_actor, require
 from identity.accounts import (DEVICE_CODE_TTL, new_device_code, normalize_email)
-from identity.models import DeviceCode, Group, Member, Session, User
-from identity.sessions import current_session
+from identity.models import DeviceCode, Group, Member, Session
 from identity.tokens import hash_token
 from utils import get_json_object, handle_db_errors, utc_now
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/group")
 
 ROLES = ("admin", "editor", "member")
-
-
-def _require_group_admin() -> tuple[User, Member]:
-    """Gate for every route here: 401 without a session, 403 for a device session
-    or anyone who is not an active admin. Phase 1 has one group per install, so
-    the group is the admin's single active member row. Task 6's access layer
-    replaces this."""
-    session = current_session()
-    if session is None:
-        abort(make_response(jsonify({"error": "unauthorized"}), 401))
-    forbidden = make_response(jsonify({"error": "forbidden"}), 403)
-    if session.kind != "user":
-        abort(forbidden)
-    member = db.session.execute(
-        db.select(Member).where(Member.user_id == session.user_id, Member.role == "admin",
-                                Member.active.is_(True)).order_by(Member.id).limit(1)
-    ).scalar_one_or_none()
-    if member is None:
-        abort(forbidden)
-    return db.session.get(User, session.user_id), member
 
 
 def _group_dict(group: Group) -> dict:
@@ -57,16 +37,18 @@ def _clean_name(value):
 
 
 @admin_bp.get("")
+@require("admin")
 @handle_db_errors("Could not load the group")
 def get_group():
-    _, admin = _require_group_admin()
+    admin = current_actor()
     return jsonify(_group_dict(db.session.get(Group, admin.group_id)))
 
 
 @admin_bp.patch("")
+@require("admin")
 @handle_db_errors("Could not update the group")
 def patch_group():
-    _, admin = _require_group_admin()
+    admin = current_actor()
     data, error = get_json_object()
     if error:
         return error
@@ -90,9 +72,10 @@ def patch_group():
 
 
 @admin_bp.get("/members")
+@require("admin")
 @handle_db_errors("Could not load members")
 def list_members():
-    _, admin = _require_group_admin()
+    admin = current_actor()
     rows = db.session.execute(
         db.select(Member).where(Member.group_id == admin.group_id)
         .order_by(func.lower(Member.display_name), Member.id)).scalars()
@@ -108,9 +91,10 @@ def _email_value(value):
 
 
 @admin_bp.post("/members")
+@require("admin")
 @handle_db_errors("Could not add the member")
 def add_member():
-    _, admin = _require_group_admin()
+    admin = current_actor()
     data, error = get_json_object()
     if error:
         return error
@@ -142,9 +126,10 @@ def _other_active_admin_exists(group_id: int, member_id: int) -> bool:
 
 
 @admin_bp.patch("/members/<int:member_id>")
+@require("admin")
 @handle_db_errors("Could not update the member")
 def patch_member(member_id: int):
-    _, admin = _require_group_admin()
+    admin = current_actor()
     data, error = get_json_object()
     if error:
         return error
@@ -195,11 +180,12 @@ def patch_member(member_id: int):
 
 
 @admin_bp.post("/device-codes")
+@require("admin")
 @handle_db_errors("Could not create a device code")
 def create_device_code():
-    user, admin = _require_group_admin()
+    admin = current_actor()
     code = new_device_code()
-    row = DeviceCode(group_id=admin.group_id, code_hash=hash_token(code), created_by=user.id,
+    row = DeviceCode(group_id=admin.group_id, code_hash=hash_token(code), created_by=admin.user_id,
                      expires_at=utc_now() + DEVICE_CODE_TTL)
     db.session.add(row)
     db.session.commit()
@@ -208,9 +194,10 @@ def create_device_code():
 
 
 @admin_bp.get("/device-codes")
+@require("admin")
 @handle_db_errors("Could not load device codes")
 def list_device_codes():
-    _, admin = _require_group_admin()
+    admin = current_actor()
     now = utc_now()
     live = (db.select(func.count(Session.id))
             .where(Session.device_code_id == DeviceCode.id, Session.revoked_at.is_(None),
@@ -226,9 +213,10 @@ def list_device_codes():
 
 
 @admin_bp.delete("/device-codes/<int:code_id>")
+@require("admin")
 @handle_db_errors("Could not revoke the device code")
 def revoke_device_code(code_id: int):
-    _, admin = _require_group_admin()
+    admin = current_actor()
     row = db.session.execute(
         db.select(DeviceCode).where(DeviceCode.id == code_id,
                                     DeviceCode.group_id == admin.group_id)

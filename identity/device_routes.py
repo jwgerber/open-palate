@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify
 from sqlalchemy import func, update
 
 from extensions import db, limiter
+from identity.access import current_actor, require
 from identity.accounts import normalize_device_code
 from identity.models import DeviceCode, Member
 from identity.sessions import current_session, start_device_session
@@ -47,26 +48,11 @@ def enter():
     return set_cookie(jsonify({"status": "ok"}))
 
 
-def _session_group_id() -> int | None:
-    """Group of the live session: a device's group, or a signed-in person's single
-    active group (Phase 1: one group per install)."""
-    session = current_session()
-    if session is None:
-        return None
-    if session.kind == "device":
-        return session.device_group_id
-    return db.session.execute(
-        db.select(Member.group_id).where(Member.user_id == session.user_id,
-                                         Member.active.is_(True))
-        .order_by(Member.id).limit(1)).scalar_one_or_none()
-
-
 @device_bp.get("/members")
+@require("member")
 @handle_db_errors("Could not load members")
 def members():
-    group_id = _session_group_id()
-    if group_id is None:
-        return jsonify({"error": "unauthorized"}), 401
+    group_id = current_actor().group_id
     rows = db.session.execute(
         db.select(Member.id, Member.display_name)
         .where(Member.group_id == group_id, Member.active.is_(True))
