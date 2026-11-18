@@ -288,8 +288,10 @@ def test_request_link_rejects_bad_email(client, db_session, sent):
 
 
 def make_logging_app(database_url):
-    return create_app({"TESTING": True, "LOG_SETUP_LINK": True, "SECRET_KEY": "test-secret",
-                       "BASE_URL": "http://localhost", "SQLALCHEMY_DATABASE_URI": database_url})
+    # IN_CONTAINER: the test client is a local peer, which would otherwise be "open"
+    # and make these token checks vacuous.
+    return create_app({"TESTING": True, "LOG_SETUP_LINK": True, "IN_CONTAINER": True,
+                       "SECRET_KEY": "test-secret", "BASE_URL": "http://localhost", "SQLALCHEMY_DATABASE_URI": database_url})
 
 
 def setup_links(caplog):

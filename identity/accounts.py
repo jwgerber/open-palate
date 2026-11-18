@@ -152,7 +152,11 @@ def log_setup_link_if_needed(app) -> None:
             db.session.remove()
         if needed:
             link = f"{app.config['BASE_URL']}/setup?token={new_setup_token()}"
-            logger.warning("No admin yet. Create the first admin within 15 minutes: %s", link)
+            logger.warning("No admin yet. Open the app from this machine, or create the "
+                           "first admin within 15 minutes: %s", link)
+            if app.config.get("SETUP_OPEN"):
+                logger.warning("SETUP_OPEN is on: anyone who can reach this app can "
+                               "create the first admin.")
 
 
 DEVICE_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L

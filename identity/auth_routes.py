@@ -12,6 +12,7 @@ from identity.accounts import (active_member_for_email, admin_exists, default_di
                                normalize_email, setup_token_valid, user_has_active_member)
 from identity.models import Group, LoginToken, Member, User
 from identity.sessions import current_session, end_session, start_user_session
+from identity.setup_access import setup_is_open, setup_password_ok
 from identity.tokens import hash_token
 from utils import get_json_object, handle_db_errors, utc_now
 
@@ -115,10 +116,12 @@ def setup():
     data, error = get_json_object()
     if error:
         return error
-    if not setup_token_valid(data.get("token")):
-        return jsonify({"error": "invalid_token"}), 400
     if admin_exists():
         return jsonify({"error": "setup_done"}), 409
+    if not (setup_token_valid(data.get("token"))
+            or setup_password_ok(data.get("setup_password"))
+            or setup_is_open()):
+        return jsonify({"error": "invalid_token"}), 400
     email = normalize_email(data.get("email"))
     if email is None:
         return _email_error()
@@ -135,6 +138,17 @@ def setup():
     set_cookie = start_user_session(user)
     db.session.commit()
     return set_cookie(jsonify({"status": "ok"}))
+
+
+@auth_bp.get("/setup-status")
+@limiter.limit("30/minute")
+@handle_db_errors("Could not check setup")
+def setup_status():
+    """Public. Says whether first-admin setup is needed and how this visitor may do it."""
+    if admin_exists():
+        return jsonify({"needed": False})
+    return jsonify({"needed": True, "open": setup_is_open(),
+                    "password": bool(current_app.config.get("SETUP_PASSWORD"))})
 
 
 @auth_bp.post("/logout")
