@@ -14,6 +14,8 @@ from identity.accounts import (ADMIN_LINK_TTL, DEVICE_CODE_TTL, find_user, get_o
                                normalize_email)
 from identity.models import DeviceCode, Group, Member, Session
 from identity.tokens import hash_token
+from tasting.sample_data import (SampleDataError, has_sample_data, load_sample_data,
+                                remove_sample_data)
 from utils import get_json_object, handle_db_errors, utc_now
 
 logger = logging.getLogger(__name__)
@@ -47,7 +49,8 @@ def _clean_name(value):
 @handle_db_errors("Could not load the group")
 def get_group():
     admin = current_actor()
-    return jsonify(_group_dict(db.session.get(Group, admin.group_id)))
+    return jsonify({**_group_dict(db.session.get(Group, admin.group_id)),
+                    "sample_data": has_sample_data(admin.group_id)})
 
 
 @admin_bp.patch("")
@@ -281,3 +284,34 @@ def revoke_device_code(code_id: int):
                        .values(revoked_at=now))
     db.session.commit()
     return jsonify({"status": "revoked"})
+
+
+@admin_bp.post("/sample-data")
+@require("admin")
+@handle_db_errors("Could not load the sample data")
+def post_sample_data():
+    admin = current_actor()
+    try:
+        counts = load_sample_data(admin.group_id, admin)
+    except SampleDataError as exc:
+        db.session.rollback()
+        return jsonify({"error": exc.code}), 409
+    except Exception:
+        db.session.rollback()
+        raise
+    db.session.commit()
+    return jsonify(counts), 201
+
+
+@admin_bp.delete("/sample-data")
+@require("admin")
+@handle_db_errors("Could not remove the sample data")
+def delete_sample_data():
+    admin = current_actor()
+    try:
+        counts = remove_sample_data(admin.group_id)
+    except Exception:
+        db.session.rollback()
+        raise
+    db.session.commit()
+    return jsonify(counts)
