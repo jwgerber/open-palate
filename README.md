@@ -4,28 +4,40 @@
 
 A small web app for tasting coffee together. Staff log a *flight* (several coffees in pour order), score each cup on sliders, pick flavor terms from a wheel, note defects, and reveal everyone's reads once the flight closes. Blind flights stay blind, host included, until close. It also keeps a coffee list with consensus scores, a personal palate view, and printable cupping sheets.
 
-One Docker image runs the Flask API and the built web app. Data lives in SQLite on a volume, or in Postgres if you set `DATABASE_URL`. HTTPS is required (secure cookies, QR links opened on phones).
+One Docker image runs the Flask API and the built web app. Data lives in SQLite on a volume, or in Postgres if you set `DATABASE_URL`. For anything other than your own computer, put it behind HTTPS (secure cookies, QR links opened on phones).
 
 ## Quick start
 
+Try it on your own computer. No other settings are needed:
+
+```sh
+docker run -p 127.0.0.1:8000:8000 -v open-palate-data:/data -e SETUP_OPEN=true ghcr.io/jwgerber/open-palate:latest
+```
+
+Open http://localhost:8000 and create the first admin. `SETUP_OPEN=true` lets anyone who can reach the app become the first admin, so this is safe only because the port is bound to `127.0.0.1`: nothing outside your computer can connect. Do not use it on a server.
+
+On a server, drop `SETUP_OPEN`, set `BASE_URL` to the public address, and use the setup link or `SETUP_PASSWORD` (see First admin):
+
 ```sh
 docker run -d --name tasting -p 8000:8000 \
-  -e SECRET_KEY="$(openssl rand -hex 32)" \
   -e BASE_URL=https://tasting.example.com \
+  -e SETUP_PASSWORD="choose-a-long-passphrase" \
   -v tasting-data:/data \
   ghcr.io/jwgerber/open-palate:latest
 ```
 
 The app runs as uid 10001. On start the container fixes the ownership of `/data` itself, so a bind mount (`-v /srv/tasting:/data`) or a host disk that is owned by root works too. SQLite runs with write-ahead logging and one worker by default (set `WEB_CONCURRENCY` or `GUNICORN_THREADS` to change that).
 
-`BASE_URL` is the public address people will type, with no trailing slash. Every link the app builds (sign-in emails, QR codes, the setup link) comes from it. Put the container behind HTTPS (Caddy, a Cloudflare Tunnel, or a host such as Render or Fly.io). Check it with `curl http://localhost:8000/healthz`, which answers `{"ok":true}`.
+`BASE_URL` is the public address people will type, with no trailing slash. It defaults to `http://localhost:8000` (with a warning in the log), which is right only on your own computer. Every link the app builds (sign-in emails, QR codes, the setup link) comes from it. On a server, put the container behind HTTPS (Caddy, a Cloudflare Tunnel, or a host such as Render or Fly.io). Check it with `curl http://localhost:8000/healthz`, which answers `{"ok":true}`.
 
 Environment variables:
 
 | Variable | Notes |
 |---|---|
-| `SECRET_KEY` | Required. Keep it stable; changing it signs everyone out. |
-| `BASE_URL` | Required. |
+| `SECRET_KEY` | Optional with SQLite: when unset, one is generated on first start and kept in a file named `secret_key` next to the database file (mode 0600), so it lasts as long as the data. Required with Postgres (start-up fails without it). Keep it stable; changing it signs everyone out. |
+| `BASE_URL` | Default `http://localhost:8000`, with a warning. Set it to the public address on any real deployment. |
+| `SETUP_OPEN` | `true` lets anyone who can reach the app create the first admin. Use it only with a port bound to `127.0.0.1`. Default off. |
+| `SETUP_PASSWORD` | Optional. A passphrase that lets a visitor create the first admin from the setup page. |
 | `DATABASE_URL` | Unset: SQLite at `/data/tasting.db`. Set: Postgres, e.g. `postgresql://user:pass@host/db`. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Optional, see below. |
 | `ANTHROPIC_API_KEY` | Optional, see below. |
@@ -36,19 +48,25 @@ Migrations run on every container start.
 
 ## First admin
 
-On start, if no admin exists, the app logs a one-time setup link (valid 15 minutes, a fresh one at each start until an admin exists):
+While no admin exists, any ONE of these creates the first admin:
+
+1. **Open setup.** The setup page needs nothing. It applies when `SETUP_OPEN=true` (anyone who can reach the app), or, when running directly and not in Docker, when the visitor's real connection and forwarded address are both on your own network (private or loopback). In Docker, setup is never open by itself: on a server, Docker makes every visitor look local, so you must use one of the next two ways or set `SETUP_OPEN`.
+2. **`SETUP_PASSWORD`.** Set it, open the app, and type it on the setup page.
+3. **The setup link in the log.** On start, if no admin exists, the app logs a one-time link (valid 15 minutes, a fresh one at each start until an admin exists):
 
 ```sh
 docker logs tasting | grep "No admin yet"
 ```
 
-Open it, set your name, then set the group name and time zone, add staff, and make a device code. On a host where you only have a log viewer, that is all you need. If you have a shell, this does the same:
+Open it, set your name, then set the group name and time zone, add staff, and make a device code. On a host where you only have a log viewer, the link is all you need. If you have a shell, this does the same:
 
 ```sh
 docker exec --user 10001 tasting flask create-admin you@example.com
 ```
 
-If every admin is lost, run `flask create-admin` again to recover.
+Setup requests are limited to 5 a minute. Once an admin exists, setup is closed. If every admin is lost, run `flask create-admin` again to recover.
+
+Next, in the Log or Coffees tab an admin of an empty group can **load sample data** (five coffees, three sample tasters and a closed flight) to see how the app looks. Remove it in Group settings.
 
 ## The shop tablet
 
@@ -56,12 +74,12 @@ Open your `BASE_URL` on the tablet, enter the device code from the admin page, a
 
 ## Email and scan (optional)
 
-- **Email.** Set the `SMTP_*` variables and staff can sign in on their own phones with an emailed link. Without SMTP, sign-in links are written to the log instead. Emails are sent synchronously, so a slow mail server slows the request that sent it. Some email security scanners open links before the person does and use up the single-use link; open the link from a device you trust, or request a new one.
+- **Email.** Set the `SMTP_*` variables and staff can sign in on their own phones with an emailed link. Without SMTP, sign-in links are written to the log instead, or an admin can open Group settings and use **Copy sign-in link** on a member who has an email: it makes a single-use link valid for 24 hours, cancels that person's older links, and needs no mail server. Emails are sent synchronously, so a slow mail server slows the request that sent it. Some email security scanners open links before the person does and use up the single-use link; open the link from a device you trust, or request a new one.
 - **Paper-sheet scan.** Set `ANTHROPIC_API_KEY` to turn on photo scanning of paper cupping sheets. It only pre-fills the entry form; nothing is saved until a person confirms. Without the key the scan is off.
 
 ## Behind a proxy
 
-Every absolute link uses `BASE_URL`, never the request's host. The client address for rate limits comes from `X-Forwarded-For`, trusting `PROXY_HOPS` proxies (default `1`, right for Render, Fly.io, Caddy and Cloudflare). **Set `PROXY_HOPS=0` if the container is not behind a proxy**, otherwise clients can spoof their IP and dodge rate limits. Rate limits are counted per worker, in memory, so they reset on restart.
+Every absolute link uses `BASE_URL`, never the request's host. The client address for rate limits comes from `X-Forwarded-For`, trusting `PROXY_HOPS` proxies (default `1`, right for Render, Fly.io, Caddy and Cloudflare). **Set `PROXY_HOPS=0` if the container is not behind a proxy**, otherwise clients can spoof their IP and dodge rate limits. Set `PROXY_HOPS` to the exact number of proxies. A higher number lets a visitor fake their address, which can open setup. Rate limits are counted per worker, in memory, so they reset on restart.
 
 Gunicorn's access log here records the path only, never the query string, because sign-in links carry a token there; the werkzeug log is redacted too. Only the configuration shipped in this repo does that, so do not turn on query-string access logs in a proxy or elsewhere without redacting `token=`.
 
@@ -100,7 +118,7 @@ Pin a version tag (`ghcr.io/jwgerber/open-palate:v1.2.3`) instead of `latest` if
 
 ## Deploy to Render
 
-The blueprint in `render.yaml` runs the image as a web service with a 1 GB disk at `/data`, generates `SECRET_KEY`, and asks for `BASE_URL`. A disk needs a paid instance (the Starter plan, about $7 per month plus a little for the disk). Edit the `image.url` in `render.yaml` to your published image, and add registry credentials in Render while the package is private. Read the setup link from Render's logs.
+The blueprint in `render.yaml` runs the image as a web service with a 1 GB disk at `/data`, generates `SECRET_KEY`, and asks for `BASE_URL`. Add a `SETUP_PASSWORD` env var in Render if you prefer it to the log link. A disk needs a paid instance (the Starter plan, about $7 per month plus a little for the disk). Edit the `image.url` in `render.yaml` to your published image, and add registry credentials in Render while the package is private. Read the setup link from Render's logs.
 
 ## Development
 
