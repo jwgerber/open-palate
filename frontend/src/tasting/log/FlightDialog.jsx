@@ -19,6 +19,7 @@ import { Box, CircularProgress, Dialog, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import ConfirmDialog from '../../common/ConfirmDialog';
 import WhoScreen from './screens/WhoScreen';
+import TasterBanner from './TasterBanner';
 import PickCoffeesScreen from './screens/PickCoffeesScreen';
 import AddCoffeeForm from './screens/AddCoffeeForm';
 import EntryScreen from './screens/EntryScreen';
@@ -52,6 +53,7 @@ export default function FlightDialog({ draft, dispatch, onDone, restored = false
   const [busy, run] = useBusyAction();
   const [wheelPath, setWheelPath] = useState([]);   // survives the Review round-trip
   const [confirmClose, setConfirmClose] = useState(false);
+  const [confirmSwitch, setConfirmSwitch] = useState(false);
   const [coffees, setCoffees] = useState(null);      // { coffees, roasters } | null while loading
   const [coffeesError, setCoffeesError] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -64,6 +66,15 @@ export default function FlightDialog({ draft, dispatch, onDone, restored = false
   const memberId = !isPerson ? draft.who?.id ?? null : null;
   const open = draft.screen !== 'landing' && !closing;
   const hasProgress = draft.picked.length > 0 && !draft.logged;
+
+  // A shared device names whose sheet this is; "Not you?" hands it to the next taster with a clean sheet.
+  const hasScores = Object.values(draft.entries).some((e) => Object.keys(e.vals).length > 0
+    || Object.keys(e.tags).length > 0 || Object.keys(e.defects).length > 0 || !!e.note?.trim()
+    || Object.keys(e.advanced ?? {}).length > 0 || !!e.vote);
+  const switchTaster = () => { setConfirmSwitch(false); dispatch({ type: 'switchTaster' }); };
+  const tasterBanner = !isPerson && draft.who && !draft.logged
+    ? <TasterBanner name={draft.who.name} onSwitch={() => (hasScores ? setConfirmSwitch(true) : switchTaster())} />
+    : undefined;
   const needsCoffees = open && (draft.screen === 'picker' || draft.screen === 'add');
 
   const go = (screen) => dispatch({ type: 'screen', screen });
@@ -297,7 +308,7 @@ export default function FlightDialog({ draft, dispatch, onDone, restored = false
       const Entry = isAdvancedFlight(draft) ? AdvancedEntryScreen : EntryScreen;
       body = (
         <Entry
-          draft={draft} dispatch={dispatch} online={online} busy={busy} onClose={requestClose}
+          draft={draft} dispatch={dispatch} online={online} busy={busy} onClose={requestClose} tasterBanner={tasterBanner}
           onShare={draft.shared && !draft.viaLink ? () => { blurActive(); go('share'); } : undefined}
           onReview={() => go('review')} onLog={logFlight} path={wheelPath} onPath={setWheelPath}
           onOpenTimer={mayRunTimer ? () => { blurActive(); openTimer(); } : undefined}
@@ -317,7 +328,7 @@ export default function FlightDialog({ draft, dispatch, onDone, restored = false
       body = <HostTimerScreen flight={draft.flight} dispatch={dispatch} memberId={memberId} onMySheet={() => go('entry')} />;
       break;
     case 'review':
-      body = <ReviewScreen draft={draft} dispatch={dispatch} online={online} busy={busy} onBack={() => go('entry')} onLog={logFlight} />;
+      body = <ReviewScreen draft={draft} dispatch={dispatch} tasterBanner={tasterBanner} online={online} busy={busy} onBack={() => go('entry')} onLog={logFlight} />;
       break;
     case 'reveal': {
       // A Advanced flight's result is a cupping summary (`coffees`), which RevealScreen can't read (`cups`).
@@ -359,6 +370,15 @@ export default function FlightDialog({ draft, dispatch, onDone, restored = false
         confirmColor="error"
         onConfirm={() => { setConfirmClose(false); finish(); }}
         onClose={() => setConfirmClose(false)}
+      />
+      <ConfirmDialog
+        open={confirmSwitch}
+        title="Switch taster?"
+        message={`${draft.who?.name ?? 'The last taster'}'s scores on this flight are cleared, and the next taster starts a clean sheet.`}
+        confirmLabel="Switch"
+        confirmColor="error"
+        onConfirm={switchTaster}
+        onClose={() => setConfirmSwitch(false)}
       />
     </>
   );

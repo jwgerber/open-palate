@@ -47,7 +47,7 @@ const SectionHead = ({ children }) => (
   </Typography>
 );
 
-export default function AdvancedEntryScreen({ draft, dispatch, onClose, onShare, onLog, online = true, busy = false, path = [], onPath, onOpenTimer, variant = 'live', paperName, scanFlags = {} }) {
+export default function AdvancedEntryScreen({ draft, dispatch, onClose, onShare, onLog, online = true, busy = false, path = [], onPath, onOpenTimer, variant = 'live', paperName, scanFlags = {}, tasterBanner }) {
   const paper = variant === 'paper';
   const coffee = currentCoffee(draft);
   const coffeeId = coffee?.id ?? null;
@@ -106,7 +106,7 @@ export default function AdvancedEntryScreen({ draft, dispatch, onClose, onShare,
             <Chip label="Cupping" size="small" sx={{ bgcolor: (t) => alpha(t.palette.primary.main, 0.08), fontWeight: 500 }} />
           </>
         )}
-        banner={paper ? undefined : <TimerBanner flight={draft.flight} onOpenTimer={onOpenTimer} />}
+        banner={paper ? undefined : <>{tasterBanner}<TimerBanner flight={draft.flight} onOpenTimer={onOpenTimer} /></>}
         bodyProps={{ ref: bodyRef, 'data-testid': 'entry-body' }}
         footer={(
           <>

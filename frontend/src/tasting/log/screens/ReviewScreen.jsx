@@ -45,13 +45,14 @@ export function ReviewCard({ index, coffee, entry, onOpen }) {
   );
 }
 
-export default function ReviewScreen({ draft, dispatch, onBack, onLog, online = true, busy = false }) {
+export default function ReviewScreen({ draft, dispatch, onBack, onLog, online = true, busy = false, tasterBanner }) {
   const missing = missingOverall(draft);
   const ok = canLog(draft);
   return (
     <Screen
       title="Last look"
       onBack={onBack}
+      banner={tasterBanner}
       trailing={<Typography variant="body2" color="text.secondary">{draft.picked.length} cups</Typography>}
       footer={(
         <>

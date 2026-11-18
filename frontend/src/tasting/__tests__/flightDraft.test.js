@@ -11,6 +11,18 @@ const decaf = { id: 3, name: 'Decaf Huila', roaster: 'Harbor Roasters', kind: 'h
 const run = (actions, start = initialDraft()) => actions.reduce(reducer, start);
 
 describe('flight draft reducer', () => {
+  it('switchTaster clears the taster and every score but keeps the flight and screen', () => {
+    let d = run([{ type: 'togglePick', coffee: guji }, { type: 'togglePick', coffee: winter },
+      { type: 'who', who: { id: 9, name: 'Maya Lin' } }, { type: 'screen', screen: 'entry' },
+      { type: 'val', coffeeId: 1, attr: 'overall', value: 4 }, { type: 'cur', cur: 1 }]);
+    d = reducer(d, { type: 'switchTaster' });
+    expect(d.who).toBeNull();
+    expect(d.entries).toEqual({});
+    expect(d.cur).toBe(0);
+    expect(d.screen).toBe('entry');
+    expect(d.picked.map((c) => c.id)).toEqual([1, 2]);
+  });
+
   it('picks, un-picks (renumbering) and reorders', () => {
     let d = run([{ type: 'togglePick', coffee: guji }, { type: 'togglePick', coffee: winter }, { type: 'togglePick', coffee: decaf }]);
     expect(d.picked.map((c) => c.id)).toEqual([1, 2, 3]);

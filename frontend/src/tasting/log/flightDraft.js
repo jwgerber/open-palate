@@ -194,6 +194,9 @@ export function reducer(draft, action) {
       return draft.flightId ? draft : { ...draft, advancedStep: action.step };
     case 'who':
       return { ...draft, who: action.who };
+    case 'switchTaster':
+      // The next person on a shared device: the last taster's scores must not ride along.
+      return { ...draft, who: null, entries: {}, cur: 0 };
     case 'flightName':
       return { ...draft, flightName: action.name };
     case 'blind':

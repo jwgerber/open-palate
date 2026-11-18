@@ -31,7 +31,7 @@ import { prepWord } from '../../format';
 
 const SLIDERS = [['Acidity', 'acidity'], ['Sweetness', 'sweetness'], ['Body', 'body']];
 
-export default function EntryScreen({ draft, dispatch, onClose, onShare, onReview, onLog, online = true, busy = false, path = [], onPath }) {
+export default function EntryScreen({ draft, dispatch, onClose, onShare, onReview, onLog, online = true, busy = false, path = [], onPath, tasterBanner }) {
   const coffee = currentCoffee(draft);
   const coffeeId = coffee?.id ?? null;
   const e = entryFor(draft, coffeeId);
@@ -61,6 +61,7 @@ export default function EntryScreen({ draft, dispatch, onClose, onShare, onRevie
     <Screen
       title={title}
       onClose={onClose}
+      banner={tasterBanner}
       trailing={(
         <>
           {onShare && <IconButton aria-label="Share this flight" onClick={onShare}><IosShareIcon /></IconButton>}
