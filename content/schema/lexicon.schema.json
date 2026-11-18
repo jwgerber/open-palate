@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lexicon",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "key_separator", "tree", "families", "defects", "preps", "kinds", "processes", "roasts"],
+  "properties": {
+    "version": {"const": 1},
+    "key_separator": {"type": "string", "minLength": 1, "maxLength": 1},
+    "tree": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/topNode"}},
+    "families": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hex", "tint"],
+        "properties": {
+          "hex": {"$ref": "#/$defs/hex"},
+          "tint": {"$ref": "#/$defs/hex"}
+        }
+      }
+    },
+    "defects": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "preps": {"$ref": "#/$defs/labels"},
+    "kinds": {"$ref": "#/$defs/labels"},
+    "processes": {"$ref": "#/$defs/labels"},
+    "roasts": {"$ref": "#/$defs/labels"}
+  },
+  "$defs": {
+    "hex": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+    "labels": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": {"type": "string", "minLength": 1, "pattern": "^[^>]+$"},
+        "children": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/node"}}
+      }
+    },
+    "topNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "family"],
+      "properties": {
+        "label": {"type": "string", "minLength": 1, "pattern": "^[^>]+$"},
+        "family": {"type": "string", "minLength": 1},
+        "children": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/node"}}
+      }
+    }
+  }
+}

@@ -10,6 +10,8 @@ from identity import accounts, cli, log_redact, sessions
 from identity.admin_routes import admin_bp
 from identity.auth_routes import auth_bp
 from identity.device_routes import device_bp
+from tasting import content
+from tasting.routes import tasting_bp
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -42,6 +44,8 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(device_bp)
+    app.register_blueprint(tasting_bp)
+    content.load()  # read the content files once, and fail at startup if they are missing
     cli.init_app(app)
 
     if app.config.get("LOG_SETUP_LINK", not app.config.get("TESTING")):

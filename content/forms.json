@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "basic": {
+    "attributes": [
+      "acidity",
+      "sweetness",
+      "body",
+      "balance",
+      "overall"
+    ],
+    "labels": {
+      "acidity": "Acidity",
+      "sweetness": "Sweetness",
+      "body": "Body",
+      "balance": "Balance",
+      "overall": "Overall"
+    },
+    "scale_words": {
+      "acidity": [
+        "flat",
+        "mellow",
+        "bright",
+        "sharp",
+        "searing"
+      ],
+      "sweetness": [
+        "dry",
+        "a hint",
+        "sweet",
+        "rich",
+        "syrupy"
+      ],
+      "body": [
+        "thin",
+        "light",
+        "medium",
+        "full",
+        "heavy"
+      ],
+      "balance": [
+        "one thing shouts",
+        "uneven",
+        "holds together",
+        "in tune",
+        "everything fits"
+      ],
+      "overall": [
+        "wouldn't finish it",
+        "fine",
+        "good",
+        "really good",
+        "would buy a bag"
+      ]
+    }
+  },
+  "advanced": {
+    "groups": [
+      {
+        "label": "Aromatic",
+        "categories": [
+          "aroma",
+          "flavour",
+          "aftertaste"
+        ]
+      },
+      {
+        "label": "Taste",
+        "categories": [
+          "acidity",
+          "sweetness",
+          "bitterness"
+        ]
+      },
+      {
+        "label": "Tactile",
+        "categories": [
+          "weight",
+          "texture",
+          "afterfeel"
+        ]
+      },
+      {
+        "label": "Aggregate",
+        "categories": [
+          "balance"
+        ]
+      }
+    ],
+    "categories": {
+      "aroma": {
+        "label": "Aroma",
+        "plus": "Intense, complex, positive aromas",
+        "minus": "Weak, insipid aroma",
+        "dq": "Mostly negative aromas (medicinal, earthy, ashy, vegetal), or none at all"
+      },
+      "flavour": {
+        "label": "Flavour",
+        "plus": "Intense, complex, positive flavour",
+        "minus": "Weak, insipid flavour",
+        "dq": "Mostly negative flavours (medicinal, earthy, ashy, vegetal)"
+      },
+      "aftertaste": {
+        "label": "Aftertaste",
+        "plus": "Intense, complex, positive finish",
+        "minus": "Weak, insipid finish",
+        "dq": "Mostly negative finish (medicinal, earthy, ashy, vegetal)"
+      },
+      "acidity": {
+        "label": "Acidity",
+        "plus": "Refined, complex, structured, fresh-fruit-like",
+        "minus": "Sour, harsh, dull, or overpowering / barely there",
+        "dq": "Vinegary or intensely sour"
+      },
+      "sweetness": {
+        "label": "Sweetness",
+        "plus": "Ripe-fruit sweetness, intensely sweet",
+        "minus": "Sweetness is hard to find",
+        "dq": "No sweetness at all"
+      },
+      "bitterness": {
+        "label": "Bitterness",
+        "plus": "Piquant, interesting, carried by sweetness",
+        "minus": "Bitterness dominates",
+        "dq": "Overwhelmingly bitter"
+      },
+      "weight": {
+        "label": "Weight",
+        "plus": "Comfortable, thirst-quenching mouthfeel (light is fine if it fits)",
+        "minus": "Insipid body",
+        "dq": "Unacceptably thin and watery"
+      },
+      "texture": {
+        "label": "Texture",
+        "plus": "Smooth, creamy and/or juicy",
+        "minus": "Astringent",
+        "dq": "Overpowering astringency"
+      },
+      "afterfeel": {
+        "label": "Afterfeel",
+        "plus": "Comfortable and smooth after swallowing, never astringent",
+        "minus": "Dryness, roughness or grit",
+        "dq": "Strongly astringent, gritty or rough"
+      },
+      "balance": {
+        "label": "Balance",
+        "plus": "Everything works together; one strength can carry a weakness",
+        "minus": "Negatives are not compensated for",
+        "dq": "Heavily tipped toward a negative"
+      }
+    },
+    "steps": {
+      "0.5": "Coarse",
+      "0.1": "Fine"
+    },
+    "disqualified": {
+      "label": "D/Q",
+      "description": "Disqualified: a quality issue serious enough to void the category"
+    },
+    "votes": {
+      "yes": "Yes",
+      "maybe": "Maybe",
+      "no": "No"
+    },
+    "vote_prompt": "Would you put it on the bar?"
+  }
+}

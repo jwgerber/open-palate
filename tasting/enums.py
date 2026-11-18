@@ -17,6 +17,9 @@ ADV_CATEGORIES = (
 )
 ADV_STEPS = (0.5, 0.1)       # slider resolution: coarse, then fine
 ADV_DQ_VALUE = 7.0
+ADV_MIN = 7.5
+ADV_MAX = 10.0
+ADV_ANCHOR = 8.0             # where the slider starts
 
 BAR_VOTES = ("yes", "maybe", "no")
 TAG_STRENGTHS = (2, 3)       # 2 = picked, 3 = strong
@@ -24,3 +27,6 @@ TAG_STRENGTHS = (2, 3)       # 2 = picked, 3 = strong
 # Who asserted the identity on a read: a signed-in account, the shared
 # tablet, or a manager keying in a paper sheet.
 CREATED_VIA = ("account", "device", "paper")
+
+MAX_TAGS_PER_CUP = 5
+CONSENSUS_THRESHOLD = 3      # reads before averages / descriptors show for a coffee

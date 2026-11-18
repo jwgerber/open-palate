@@ -2,6 +2,7 @@
 import logging
 from datetime import datetime, timezone
 from functools import wraps
+from zoneinfo import ZoneInfo
 
 from flask import jsonify, request
 from werkzeug.exceptions import HTTPException
@@ -12,6 +13,16 @@ from extensions import db
 def utc_now() -> datetime:
     """Current UTC time as a naive datetime (the storage convention)."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def to_group_local(dt: datetime | None, tz: str) -> datetime | None:
+    """Naive UTC in, naive local out, in the group's IANA zone ``tz``.
+
+    Day bucketing must use this, never ``dt.date()``: a 06:30 UTC flight is
+    the previous evening in Los Angeles."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(tz)).replace(tzinfo=None)
 
 
 # Postgres `integer` is 32-bit; JSON and Flask's <int:> accept any width.

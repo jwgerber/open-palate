@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Score sheet wording",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "basic", "advanced"],
+  "properties": {
+    "version": {"const": 1},
+    "basic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attributes", "labels", "scale_words"],
+      "properties": {
+        "attributes": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "labels": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+        "scale_words": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array", "minItems": 5, "maxItems": 5,
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "advanced": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groups", "categories", "steps", "disqualified", "votes", "vote_prompt"],
+      "properties": {
+        "groups": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "categories"],
+            "properties": {
+              "label": {"type": "string", "minLength": 1},
+              "categories": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+            }
+          }
+        },
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "plus", "minus", "dq"],
+            "properties": {
+              "label": {"type": "string", "minLength": 1},
+              "plus": {"type": "string", "minLength": 1, "maxLength": 140},
+              "minus": {"type": "string", "minLength": 1, "maxLength": 140},
+              "dq": {"type": "string", "minLength": 1, "maxLength": 140}
+            }
+          }
+        },
+        "steps": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+        "disqualified": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label", "description"],
+          "properties": {
+            "label": {"type": "string", "minLength": 1},
+            "description": {"type": "string", "minLength": 1}
+          }
+        },
+        "votes": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+        "vote_prompt": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

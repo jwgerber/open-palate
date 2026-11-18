@@ -1,0 +1,478 @@
+{
+  "version": 1,
+  "key_separator": ">",
+  "tree": [
+    {
+      "label": "Fruity",
+      "family": "fruity",
+      "children": [
+        {
+          "label": "Berry",
+          "children": [
+            {
+              "label": "blackberry"
+            },
+            {
+              "label": "raspberry"
+            },
+            {
+              "label": "blueberry"
+            },
+            {
+              "label": "strawberry"
+            }
+          ]
+        },
+        {
+          "label": "Dried fruit",
+          "children": [
+            {
+              "label": "raisin"
+            },
+            {
+              "label": "prune"
+            }
+          ]
+        },
+        {
+          "label": "Other fruit",
+          "children": [
+            {
+              "label": "cherry"
+            },
+            {
+              "label": "pomegranate"
+            },
+            {
+              "label": "pineapple"
+            },
+            {
+              "label": "grape"
+            },
+            {
+              "label": "apple"
+            },
+            {
+              "label": "peach"
+            },
+            {
+              "label": "pear"
+            },
+            {
+              "label": "coconut"
+            }
+          ]
+        },
+        {
+          "label": "Citrus",
+          "children": [
+            {
+              "label": "grapefruit"
+            },
+            {
+              "label": "orange"
+            },
+            {
+              "label": "lemon"
+            },
+            {
+              "label": "lime"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Floral",
+      "family": "floral",
+      "children": [
+        {
+          "label": "Black tea"
+        },
+        {
+          "label": "Floral",
+          "children": [
+            {
+              "label": "chamomile"
+            },
+            {
+              "label": "rose"
+            },
+            {
+              "label": "jasmine"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Sweet",
+      "family": "sweet",
+      "children": [
+        {
+          "label": "Brown sugar",
+          "children": [
+            {
+              "label": "molasses"
+            },
+            {
+              "label": "maple syrup"
+            },
+            {
+              "label": "caramelized"
+            },
+            {
+              "label": "honey"
+            }
+          ]
+        },
+        {
+          "label": "Vanilla"
+        },
+        {
+          "label": "Vanillin"
+        },
+        {
+          "label": "Overall sweet"
+        },
+        {
+          "label": "Sweet aromatics"
+        }
+      ]
+    },
+    {
+      "label": "Nutty / Cocoa",
+      "family": "nutty",
+      "children": [
+        {
+          "label": "Nutty",
+          "children": [
+            {
+              "label": "peanuts"
+            },
+            {
+              "label": "hazelnut"
+            },
+            {
+              "label": "almond"
+            }
+          ]
+        },
+        {
+          "label": "Cocoa",
+          "children": [
+            {
+              "label": "chocolate"
+            },
+            {
+              "label": "dark chocolate"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Spices",
+      "family": "spices",
+      "children": [
+        {
+          "label": "Pungent"
+        },
+        {
+          "label": "Pepper"
+        },
+        {
+          "label": "Brown spice",
+          "children": [
+            {
+              "label": "anise"
+            },
+            {
+              "label": "nutmeg"
+            },
+            {
+              "label": "cinnamon"
+            },
+            {
+              "label": "clove"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Roasted",
+      "family": "roasted",
+      "children": [
+        {
+          "label": "Pipe tobacco"
+        },
+        {
+          "label": "Tobacco"
+        },
+        {
+          "label": "Burnt",
+          "children": [
+            {
+              "label": "acrid"
+            },
+            {
+              "label": "ashy"
+            },
+            {
+              "label": "smoky"
+            },
+            {
+              "label": "brown, roast"
+            }
+          ]
+        },
+        {
+          "label": "Cereal",
+          "children": [
+            {
+              "label": "grain"
+            },
+            {
+              "label": "malt"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Sour / Fermented",
+      "family": "sour",
+      "children": [
+        {
+          "label": "Sour",
+          "children": [
+            {
+              "label": "sour aromatics"
+            },
+            {
+              "label": "acetic acid"
+            },
+            {
+              "label": "butyric acid"
+            },
+            {
+              "label": "isovaleric acid"
+            },
+            {
+              "label": "citric acid"
+            },
+            {
+              "label": "malic acid"
+            }
+          ]
+        },
+        {
+          "label": "Alcohol / Fermented",
+          "children": [
+            {
+              "label": "winey"
+            },
+            {
+              "label": "whiskey"
+            },
+            {
+              "label": "fermented"
+            },
+            {
+              "label": "overripe"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Green / Vegetative",
+      "family": "green",
+      "children": [
+        {
+          "label": "Olive oil"
+        },
+        {
+          "label": "Raw"
+        },
+        {
+          "label": "Beany"
+        },
+        {
+          "label": "Green / Vegetative",
+          "children": [
+            {
+              "label": "under-ripe"
+            },
+            {
+              "label": "peapod"
+            },
+            {
+              "label": "fresh"
+            },
+            {
+              "label": "dark green"
+            },
+            {
+              "label": "vegetative"
+            },
+            {
+              "label": "hay-like"
+            },
+            {
+              "label": "herb-like"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Other",
+      "family": "other",
+      "children": [
+        {
+          "label": "Papery / Musty",
+          "children": [
+            {
+              "label": "stale"
+            },
+            {
+              "label": "cardboard"
+            },
+            {
+              "label": "papery"
+            },
+            {
+              "label": "woody"
+            },
+            {
+              "label": "moldy"
+            },
+            {
+              "label": "musty"
+            },
+            {
+              "label": "earthy"
+            },
+            {
+              "label": "animalic"
+            },
+            {
+              "label": "meaty"
+            },
+            {
+              "label": "phenolic"
+            }
+          ]
+        },
+        {
+          "label": "Chemical",
+          "children": [
+            {
+              "label": "bitter"
+            },
+            {
+              "label": "salty"
+            },
+            {
+              "label": "medicinal"
+            },
+            {
+              "label": "petroleum"
+            },
+            {
+              "label": "skunky"
+            },
+            {
+              "label": "rubber"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "families": {
+    "fruity": {
+      "hex": "#DA1D23",
+      "tint": "#F5C6C7"
+    },
+    "floral": {
+      "hex": "#DA0D68",
+      "tint": "#F5BFD6"
+    },
+    "sweet": {
+      "hex": "#E65832",
+      "tint": "#F8D2C4"
+    },
+    "nutty": {
+      "hex": "#A87B64",
+      "tint": "#E5D6CE"
+    },
+    "roasted": {
+      "hex": "#C94930",
+      "tint": "#F0CBC3"
+    },
+    "spices": {
+      "hex": "#AD213E",
+      "tint": "#E8C3CB"
+    },
+    "sour": {
+      "hex": "#E1C315",
+      "tint": "#F6EDB8"
+    },
+    "green": {
+      "hex": "#187A2F",
+      "tint": "#C1DCC6"
+    },
+    "other": {
+      "hex": "#0AA3B5",
+      "tint": "#BEE3E8"
+    }
+  },
+  "defects": [
+    "papery",
+    "cardboard",
+    "stale",
+    "musty",
+    "moldy",
+    "earthy",
+    "phenolic",
+    "medicinal",
+    "rubber",
+    "petroleum",
+    "fermented",
+    "overripe",
+    "acetic acid",
+    "butyric acid",
+    "baggy",
+    "quakery"
+  ],
+  "preps": {
+    "drip": "Drip",
+    "pourover": "Pourover",
+    "espresso": "Espresso",
+    "milk_drink": "Milk drink",
+    "cold_brew": "Cold brew",
+    "cupping": "Cupping"
+  },
+  "kinds": {
+    "house": "On bar here",
+    "cupping_lot": "Cupping lot",
+    "external": "Somewhere else"
+  },
+  "processes": {
+    "washed": "Washed",
+    "natural": "Natural",
+    "honey": "Honey",
+    "anaerobic": "Anaerobic",
+    "decaf_ea": "Decaf (EA)",
+    "other": "Other"
+  },
+  "roasts": {
+    "light": "Light",
+    "medium": "Medium",
+    "med_dark": "Med-dark",
+    "dark": "Dark"
+  }
+}
