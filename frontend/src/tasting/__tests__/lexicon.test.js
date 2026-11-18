@@ -9,16 +9,19 @@ const B = 'Fruity>Berry>blueberry';
 const L = 'Fruity>Citrus>lemon';
 
 describe('lexicon index', () => {
-  it('has 110 terms across 9 families', () => {
+  it('has 200 terms across 9 families', () => {
     expect(ROOT_KEYS).toHaveLength(9);
-    expect(ALL_TERMS).toHaveLength(110);
+    expect(ALL_TERMS).toHaveLength(200);
     expect(ROOT_KEYS[0]).toBe('Fruity');
   });
 
   it('keeps repeated labels apart by key', () => {
     expect(INDEX['Floral'].tier).toBe(1);
     expect(INDEX['Floral>Floral'].tier).toBe(2);
-    expect(INDEX['Floral>Floral'].children).toEqual(['Floral>Floral>chamomile', 'Floral>Floral>rose', 'Floral>Floral>jasmine']);
+    expect(INDEX['Floral>Floral'].children).toEqual([
+      'chamomile', 'rose', 'jasmine', 'hibiscus', 'lavender',
+      'magnolia', 'honeysuckle', 'orange blossom', 'bergamot', 'lemongrass',
+    ].map((l) => `Floral>Floral>${l}`));
   });
 
   it('resolves paths and ancestry', () => {
@@ -30,7 +33,7 @@ describe('lexicon index', () => {
     expect(isValidTerm('blueberry')).toBe(false);
     expect(nodeAt([]).children.map((c) => c.label)).toContain('Roasted');
     expect(nodeAt(['Fruity', 'Berry']).node.label).toBe('Berry');
-    expect(nodeAt(['Fruity', 'Berry']).children.map((c) => c.label)).toEqual(['blackberry', 'raspberry', 'blueberry', 'strawberry']);
+    expect(nodeAt(['Fruity', 'Berry']).children.map((c) => c.label)).toEqual(['blackberry', 'raspberry', 'blueberry', 'strawberry', 'cranberry', 'currant']);
     expect(nodeAt(['Nope']).children).toEqual([]);
   });
 });

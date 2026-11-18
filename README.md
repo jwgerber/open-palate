@@ -113,6 +113,10 @@ cd frontend && npm ci && npm run dev
 
 Tests: `pytest` for the backend (set `TEST_DATABASE_URL` to also run on Postgres), `cd frontend && npx vitest run` for the frontend. CI runs both, on SQLite and Postgres.
 
+## Flavor wheel
+
+The flavor wheel is the SCA / World Coffee Research Coffee Taster's Flavor Wheel (2016), extended with notes from the Counter Culture Coffee Taster's Flavor Wheel (2020). The terms live in `content/lexicon.json`.
+
 ## License
 
 AGPL-3.0. See `LICENSE`.

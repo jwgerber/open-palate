@@ -33,7 +33,7 @@ describe('FlavorWheel', () => {
     const onPath = vi.fn();
     const onCycle = vi.fn();
     const { rerender } = render(<FlavorWheel path={['Fruity', 'Berry']} tags={{}} onPath={onPath} onCycle={onCycle} />);
-    expect(screen.getAllByTestId(/^wedge-/)).toHaveLength(4);
+    expect(screen.getAllByTestId(/^wedge-/)).toHaveLength(6);
     fireEvent.click(screen.getByRole('button', { name: 'blueberry' }));
     expect(onCycle).toHaveBeenCalledWith(B);
     fireEvent.click(screen.getByTestId('wheel-center'));
@@ -73,7 +73,7 @@ describe('FlavorPicker', () => {
   it('breadcrumb, back and All navigate the path', () => {
     const onPath = vi.fn();
     render(<FlavorPicker coffeeLabel="Guji" tags={{}} onCycle={() => {}} onRemove={() => {}} path={['Fruity', 'Berry']} onPath={onPath} />);
-    expect(screen.getByText('4 under Berry · tap the center to take "Berry" as is')).toBeInTheDocument();
+    expect(screen.getByText('6 under Berry · tap the center to take "Berry" as is')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(onPath).toHaveBeenLastCalledWith(['Fruity']);
     fireEvent.click(screen.getByRole('button', { name: 'All' }));

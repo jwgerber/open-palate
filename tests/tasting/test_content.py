@@ -33,12 +33,13 @@ class TestTreeShape:
             "Sour / Fermented", "Green / Vegetative", "Other",
         ]
 
-    def test_term_count_matches_the_2016_lexicon(self, lex):
+    def test_term_count_is_the_2016_lexicon_plus_the_ccc_additions(self, lex):
         tiers = {}
         for info in lex.term_index.values():
             tiers[info["tier"]] = tiers.get(info["tier"], 0) + 1
-        assert tiers == {1: 9, 2: 28, 3: 73}
-        assert len(lex.term_index) == 110
+        # SCA 2016: 9 / 28 / 73. Counter Culture additions: 9 headings, 81 leaves.
+        assert tiers == {1: 9, 2: 37, 3: 154}
+        assert len(lex.term_index) == 200
 
     def test_keys_are_unique_even_where_labels_repeat(self, lex):
         floral_keys = [k for k, v in lex.term_index.items() if v["label"] == "Floral"]

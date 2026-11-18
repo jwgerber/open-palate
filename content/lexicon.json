@@ -20,6 +20,12 @@
             },
             {
               "label": "strawberry"
+            },
+            {
+              "label": "cranberry"
+            },
+            {
+              "label": "currant"
             }
           ]
         },
@@ -31,6 +37,15 @@
             },
             {
               "label": "prune"
+            },
+            {
+              "label": "golden raisin"
+            },
+            {
+              "label": "dried fig"
+            },
+            {
+              "label": "dried date"
             }
           ]
         },
@@ -77,6 +92,95 @@
             },
             {
               "label": "lime"
+            },
+            {
+              "label": "clementine"
+            },
+            {
+              "label": "blood orange"
+            }
+          ]
+        },
+        {
+          "label": "Stone fruit",
+          "children": [
+            {
+              "label": "apricot"
+            },
+            {
+              "label": "nectarine"
+            },
+            {
+              "label": "plum"
+            },
+            {
+              "label": "black cherry"
+            }
+          ]
+        },
+        {
+          "label": "Apple & pear",
+          "children": [
+            {
+              "label": "green apple"
+            },
+            {
+              "label": "red apple"
+            },
+            {
+              "label": "asian pear"
+            }
+          ]
+        },
+        {
+          "label": "Grape & melon",
+          "children": [
+            {
+              "label": "white grape"
+            },
+            {
+              "label": "red grape"
+            },
+            {
+              "label": "concord grape"
+            },
+            {
+              "label": "watermelon"
+            },
+            {
+              "label": "honeydew"
+            },
+            {
+              "label": "cantaloupe"
+            }
+          ]
+        },
+        {
+          "label": "Tropical fruit",
+          "children": [
+            {
+              "label": "banana"
+            },
+            {
+              "label": "mango"
+            },
+            {
+              "label": "papaya"
+            },
+            {
+              "label": "passion fruit"
+            },
+            {
+              "label": "lychee"
+            },
+            {
+              "label": "kiwi"
+            },
+            {
+              "label": "star fruit"
+            },
+            {
+              "label": "tamarind"
             }
           ]
         }
@@ -100,8 +204,32 @@
             },
             {
               "label": "jasmine"
+            },
+            {
+              "label": "hibiscus"
+            },
+            {
+              "label": "lavender"
+            },
+            {
+              "label": "magnolia"
+            },
+            {
+              "label": "honeysuckle"
+            },
+            {
+              "label": "orange blossom"
+            },
+            {
+              "label": "bergamot"
+            },
+            {
+              "label": "lemongrass"
             }
           ]
+        },
+        {
+          "label": "Green tea"
         }
       ]
     },
@@ -123,6 +251,12 @@
             },
             {
               "label": "honey"
+            },
+            {
+              "label": "cane sugar"
+            },
+            {
+              "label": "cola"
             }
           ]
         },
@@ -137,6 +271,26 @@
         },
         {
           "label": "Sweet aromatics"
+        },
+        {
+          "label": "Confection",
+          "children": [
+            {
+              "label": "marshmallow"
+            },
+            {
+              "label": "marzipan"
+            },
+            {
+              "label": "nougat"
+            },
+            {
+              "label": "butter"
+            },
+            {
+              "label": "cream"
+            }
+          ]
         }
       ]
     },
@@ -155,6 +309,15 @@
             },
             {
               "label": "almond"
+            },
+            {
+              "label": "pecan"
+            },
+            {
+              "label": "cashew"
+            },
+            {
+              "label": "walnut"
             }
           ]
         },
@@ -166,6 +329,18 @@
             },
             {
               "label": "dark chocolate"
+            },
+            {
+              "label": "baker's chocolate"
+            },
+            {
+              "label": "bittersweet chocolate"
+            },
+            {
+              "label": "milk chocolate"
+            },
+            {
+              "label": "white chocolate"
             }
           ]
         }
@@ -195,6 +370,18 @@
             },
             {
               "label": "clove"
+            },
+            {
+              "label": "licorice"
+            },
+            {
+              "label": "ginger"
+            },
+            {
+              "label": "cumin"
+            },
+            {
+              "label": "coriander"
             }
           ]
         }
@@ -224,6 +411,15 @@
             },
             {
               "label": "brown, roast"
+            },
+            {
+              "label": "toast"
+            },
+            {
+              "label": "carbon"
+            },
+            {
+              "label": "burnt sugar"
             }
           ]
         },
@@ -235,6 +431,30 @@
             },
             {
               "label": "malt"
+            },
+            {
+              "label": "barley"
+            },
+            {
+              "label": "wheat"
+            },
+            {
+              "label": "rye"
+            },
+            {
+              "label": "fresh bread"
+            },
+            {
+              "label": "graham cracker"
+            },
+            {
+              "label": "toasted oats"
+            },
+            {
+              "label": "pastry"
+            },
+            {
+              "label": "popcorn"
             }
           ]
         }
@@ -324,6 +544,58 @@
               "label": "herb-like"
             }
           ]
+        },
+        {
+          "label": "Herb",
+          "children": [
+            {
+              "label": "mint"
+            },
+            {
+              "label": "sage"
+            },
+            {
+              "label": "dill"
+            },
+            {
+              "label": "hops"
+            },
+            {
+              "label": "grassy"
+            }
+          ]
+        },
+        {
+          "label": "Vegetable",
+          "children": [
+            {
+              "label": "tomato"
+            },
+            {
+              "label": "carrot"
+            },
+            {
+              "label": "mushroom"
+            },
+            {
+              "label": "squash"
+            },
+            {
+              "label": "green pepper"
+            },
+            {
+              "label": "rhubarb"
+            },
+            {
+              "label": "sweet pea"
+            },
+            {
+              "label": "leafy greens"
+            },
+            {
+              "label": "olive"
+            }
+          ]
         }
       ]
     },
@@ -386,6 +658,20 @@
             },
             {
               "label": "rubber"
+            }
+          ]
+        },
+        {
+          "label": "Savory",
+          "children": [
+            {
+              "label": "soy sauce"
+            },
+            {
+              "label": "sundried tomato"
+            },
+            {
+              "label": "leathery"
             }
           ]
         }
