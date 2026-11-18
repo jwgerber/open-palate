@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 import pytest
 
@@ -81,3 +81,40 @@ def test_secret_never_logged(tmp_path, caplog):
     with caplog.at_level(logging.DEBUG):
         key = load_config(sqlite_env(tmp_path))["SECRET_KEY"]
     assert key not in caplog.text
+
+
+def test_empty_key_file_is_refused(tmp_path):
+    (tmp_path / "secret_key").write_text("  \n")
+    with pytest.raises(RuntimeError) as exc:
+        load_config(sqlite_env(tmp_path))
+    assert str(tmp_path / "secret_key") in str(exc.value)
+
+
+def test_key_file_is_never_seen_empty(tmp_path, monkeypatch):
+    """The winner's file appears already complete; a loser that hits
+    FileExistsError on link returns the winner's content."""
+    path = tmp_path / "secret_key"
+    winner = "w" * 64
+    real_link = os.link
+
+    def racing_link(src, dst, *args, **kwargs):
+        assert open(src).read(), "temp file must be fully written before linking"
+        path.write_text(winner)  # another worker got there first
+        return real_link(src, dst, *args, **kwargs)  # raises FileExistsError
+
+    monkeypatch.setattr(os, "link", racing_link)
+    assert load_config(sqlite_env(tmp_path))["SECRET_KEY"] == winner
+    assert [p.name for p in tmp_path.iterdir()] == ["secret_key"]
+
+
+def test_memory_db_writes_no_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    key = load_config({"DATABASE_URL": "sqlite:///:memory:", "BASE_URL": "http://localhost"})["SECRET_KEY"]
+    assert len(key) >= 64
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_query_string_is_not_part_of_the_folder(tmp_path):
+    env = {"DATABASE_URL": f"sqlite:///{tmp_path}/t.db?timeout=5", "BASE_URL": "http://localhost"}
+    key = load_config(env)["SECRET_KEY"]
+    assert (tmp_path / "secret_key").read_text() == key

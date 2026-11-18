@@ -22,34 +22,59 @@ def normalize_database_url(url: str) -> str:
 
 
 def _sqlite_file(database_uri: str) -> Path | None:
-    """The database file of a ``sqlite:///<path>`` URI, or None for any other kind."""
+    """The database file of a ``sqlite:///<path>`` URI, or None for any other kind
+    (including in-memory SQLite, which has no folder)."""
     prefix = "sqlite:///"
     if not database_uri.startswith(prefix):
         return None
-    return Path(database_uri[len(prefix):])
+    path = database_uri[len(prefix):].split("?", 1)[0]
+    if path in ("", ":memory:"):
+        return None
+    return Path(path)
+
+
+def _read_key(path: Path) -> str:
+    key = path.read_text().strip()
+    if not key:
+        raise RuntimeError(f"{path} is empty. Set SECRET_KEY, or delete that empty file.")
+    return key
+
+
+def _create_key_file(path: Path) -> str:
+    """Write a fresh key to a temp file, then hard-link it into place: the key file
+    never exists half-written, and exactly one concurrent worker's key wins."""
+    key = secrets.token_urlsafe(48)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "w") as handle:
+            handle.write(key)
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            # Another worker won the race: use theirs.
+            return _read_key(path)
+        return key
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def resolve_secret_key(env: Mapping, database_uri: str) -> str:
     """SECRET_KEY from the environment, else a key generated once and kept in
-    ``secret_key`` beside the SQLite file. Postgres has no data folder, so it must set one."""
+    ``secret_key`` beside the SQLite file. In-memory SQLite gets a per-process key;
+    Postgres has no data folder, so it must set one."""
     if env.get("SECRET_KEY"):
         return env["SECRET_KEY"]
+    if database_uri.startswith("sqlite:///") and _sqlite_file(database_uri) is None:
+        return secrets.token_urlsafe(48)
     db_file = _sqlite_file(database_uri)
     if db_file is None:
         raise RuntimeError("Set SECRET_KEY: with Postgres there is no data folder to keep a generated key in.")
     path = db_file.parent / "secret_key"
     try:
         if path.exists():
-            return path.read_text().strip()
-        try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        except FileExistsError:
-            # Another worker created it between our check and now: use theirs.
-            return path.read_text().strip()
-        key = secrets.token_urlsafe(48)
-        with os.fdopen(fd, "w") as handle:
-            handle.write(key)
-        return key
+            return _read_key(path)
+        return _create_key_file(path)
     except OSError as exc:
         raise RuntimeError(
             f"Can't read or write {path}. Set SECRET_KEY, or make that folder writable."
