@@ -108,15 +108,18 @@ def same_person(t: Tasting, who: Optional[TasterIdentity]) -> bool:
 
 
 def may_see_named(flight: TastingFlight, actor: Optional[Actor]) -> bool:
-    """Per-person reads go to managers (editor/admin) and the ACCOUNT-door host.
-    A flight hosted from a shared device has no account host: the device door
-    never counts, however the picked member is linked. Decided on
-    ``actor.kind``, never on ``actor.user_id`` (a device pick carries one)."""
+    """Per-person reads go to managers (editor/admin) and the host on the ACCOUNT
+    door: the hosting account, or the account of the hosting member (a flight
+    hosted from a shared device belongs to the picked member's account too). The
+    device door never counts. Decided on ``actor.kind``, never on
+    ``actor.user_id`` (a device pick carries one)."""
     if actor is None or actor.kind != "user":
         return False
     if actor.role in MANAGER_ROLES:
         return True
-    return flight.created_via == "account" and flight.host_user_id == actor.user_id
+    if flight.host_member_id is not None and flight.host_member_id == actor.member_id:
+        return True
+    return flight.host_user_id is not None and flight.host_user_id == actor.user_id
 
 
 # ---------------------------------------------------------------------------

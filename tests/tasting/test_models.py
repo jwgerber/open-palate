@@ -333,9 +333,9 @@ class TestMigrationPins:
     enum tuples. Pin them so editing one without the other fails here."""
 
     @staticmethod
-    def _migration():
-        path = ROOT / "migrations" / "versions" / "0002_tasting.py"
-        spec = importlib.util.spec_from_file_location("mig0002", path)
+    def _migration(name="0002_tasting"):
+        path = ROOT / "migrations" / "versions" / f"{name}.py"
+        spec = importlib.util.spec_from_file_location(f"mig{name[:4]}", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
@@ -372,4 +372,6 @@ class TestMigrationPins:
                     assert (None if pg is None else str(pg)) == (None if lite is None else str(lite))
                     model[i.name] = (table.name, tuple(c.name for c in i.columns), bool(i.unique),
                                      None if pg is None else str(pg))
-        assert model == m.INDEXES
+        later = self._migration("0004_flight_host_member_index")
+        assert later.down_revision == "0003"
+        assert model == {**m.INDEXES, **later.INDEXES}

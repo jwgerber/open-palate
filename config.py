@@ -2,6 +2,8 @@
 import os
 
 DEFAULT_DATABASE_URL = "sqlite:////data/tasting.db"
+# Paper-sheet scan models, first one used. Not an env var: change it here.
+DEFAULT_SCAN_MODELS = ("claude-sonnet-5-5", "claude-opus-5-5")
 
 
 def normalize_database_url(url: str) -> str:
@@ -29,4 +31,7 @@ def load_config(env=os.environ) -> dict:
         "SMTP_USER": env.get("SMTP_USER") or None,
         "SMTP_PASSWORD": env.get("SMTP_PASSWORD") or None,
         "SMTP_FROM": env.get("SMTP_FROM") or None,
+        # Optional: the paper-sheet scan is off (404 scan_disabled) without it.
+        "ANTHROPIC_API_KEY": env.get("ANTHROPIC_API_KEY") or None,
+        "SCAN_MODELS": DEFAULT_SCAN_MODELS,
     }

@@ -9,3 +9,4 @@ Flask-Limiter==4.1.1
 freezegun==1.5.5
 rapidfuzz==3.14.6
 jsonschema==4.26.0
+anthropic==2.3.0

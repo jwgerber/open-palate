@@ -156,6 +156,8 @@ class TastingFlight(db.Model):
                         + ", ".join(str(s) for s in ADV_STEPS) + "))", name="ck_tasting_flight_adv_step"),
         CheckConstraint("adv_pass IS NULL OR adv_pass BETWEEN 0 AND 3", name="ck_tasting_flight_adv_pass"),
         Index("idx_tasting_flight_host", "host_user_id", "opened_at"),
+        # migration 0004: "my flights" for a member who hosted from a shared device
+        Index("idx_tasting_flight_host_member", "host_member_id", "opened_at"),
         Index("ix_tasting_flights_group_id", "group_id"),
     )
 

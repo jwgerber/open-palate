@@ -61,18 +61,23 @@ class TestSamePerson:
 
 class TestMaySeeNamed:
     class Flight:
-        def __init__(self, created_via="account", host_user_id=7):
-            self.created_via, self.host_user_id = created_via, host_user_id
+        def __init__(self, created_via="account", host_user_id=7, host_member_id=3):
+            self.created_via, self.host_user_id, self.host_member_id = created_via, host_user_id, host_member_id
 
     def test_managers_and_the_account_host(self):
-        assert may_see_named(self.Flight(host_user_id=1), _actor("user", role="editor"))
-        assert may_see_named(self.Flight(host_user_id=1), _actor("user", role="admin"))
+        assert may_see_named(self.Flight(host_user_id=1, host_member_id=1), _actor("user", role="editor"))
+        assert may_see_named(self.Flight(host_user_id=1, host_member_id=1), _actor("user", role="admin"))
         assert may_see_named(self.Flight(), _actor("user", role="member"))
-        assert not may_see_named(self.Flight(host_user_id=1), _actor("user", role="member"))
+        assert not may_see_named(self.Flight(host_user_id=1, host_member_id=1), _actor("user", role="member"))
 
-    def test_a_device_never_counts_even_when_the_pick_is_the_host(self):
+    def test_device_hosted_flight_belongs_to_the_members_account(self):
+        device_hosted = self.Flight(created_via="device", host_user_id=None, host_member_id=3)
+        assert may_see_named(device_hosted, _actor("user", role="member"))
+        assert not may_see_named(device_hosted, _actor("user", role="member", user_id=8, member_id=4))
+
+    def test_the_device_door_never_counts(self):
         assert not may_see_named(self.Flight(), _actor("device"))
-        assert not may_see_named(self.Flight(created_via="device"), _actor("user", role="member"))
+        assert not may_see_named(self.Flight(created_via="device", host_user_id=None), _actor("device"))
         assert not may_see_named(self.Flight(), None)
 
 

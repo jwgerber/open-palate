@@ -465,10 +465,18 @@ class TestCoffeeSessionsRoute:
         s = world.get("member", self._url(guji)).get_json()["sessions"]
         assert len(s[0]["reads"]) == 4 and s[0]["reads"][0]["is_you"] is True
 
-    def test_device_hosted_flight_has_no_account_host(self, world, guji):
-        user, member = world.members["member"]
-        self._adv_room(world, guji, host_user_id=user.id, host_member_id=member.id, created_via="device")
+    def test_device_hosted_flight_belongs_to_the_members_account(self, world, guji):
+        """A device host is the picked member (host_user_id NULL); host powers then
+        belong to that member's account too (spec, Identity and access). Another
+        member's account is not the host."""
+        _, member = world.members["member"]
+        self._adv_room(world, guji, host_user_id=None, host_member_id=member.id, created_via="device")
         s = world.get("member", self._url(guji)).get_json()["sessions"]
+        assert s[0]["reads"] is not None and len(s[0]["reads"]) == 4
+        user, _ = make_member(world.group, "plain@cafe.example")
+        client = world.app.test_client()
+        sign_in(client, user)
+        s = client.get(BASE + self._url(guji)).get_json()["sessions"]
         assert s[0]["reads"] is None
 
     def test_device_pick_gets_no_yours_no_reads(self, world, guji):

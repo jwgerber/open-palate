@@ -11,6 +11,7 @@ from identity.admin_routes import admin_bp
 from identity.auth_routes import auth_bp
 from identity.device_routes import device_bp
 from tasting import content
+from tasting import flight_routes, paper_routes  # noqa: F401  (register on tasting_bp)
 from tasting.routes import content_bp, tasting_bp
 
 
