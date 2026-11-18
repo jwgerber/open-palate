@@ -22,7 +22,7 @@ from utils import utc_now
 SESSION_COOKIE = "tasting_session"
 CSRF_COOKIE = "tasting_csrf"
 CSRF_HEADER = "X-CSRF-Token"
-ROLLING_TTL = {"user": timedelta(days=30)}
+ROLLING_TTL = {"user": timedelta(days=30), "device": timedelta(days=365)}
 BUMP_INTERVAL = timedelta(hours=1)
 CSRF_COOKIE_MAX_AGE = int(timedelta(days=365).total_seconds())
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -55,6 +55,23 @@ def start_user_session(user: User) -> Callable[[Response], Response]:
     ttl = ROLLING_TTL["user"]
     db.session.add(Session(user_id=user.id, kind="user", token_hash=digest,
                            created_at=now, last_seen_at=now, expires_at=now + ttl))
+
+    def set_cookie(response: Response) -> Response:
+        _set_session_cookie(response, raw, ttl)
+        return response
+    return set_cookie
+
+
+def start_device_session(group_id: int, device_code_id: int | None = None
+                         ) -> Callable[[Response], Response]:
+    """Add a shared-device session for a group (the caller commits). Linking it to
+    the code that opened it lets revoking that code end the session."""
+    raw, digest = new_token()
+    now = utc_now()
+    ttl = ROLLING_TTL["device"]
+    db.session.add(Session(device_group_id=group_id, device_code_id=device_code_id,
+                           kind="device", token_hash=digest, created_at=now,
+                           last_seen_at=now, expires_at=now + ttl))
 
     def set_cookie(response: Response) -> Response:
         _set_session_cookie(response, raw, ttl)

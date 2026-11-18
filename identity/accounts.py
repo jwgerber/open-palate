@@ -146,3 +146,20 @@ def log_setup_link_if_needed(app) -> None:
         if needed:
             link = f"{app.config['BASE_URL']}/setup?token={new_setup_token()}"
             logger.warning("No admin yet. Create the first admin within 15 minutes: %s", link)
+
+
+DEVICE_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L
+DEVICE_CODE_LENGTH = 8
+DEVICE_CODE_TTL = timedelta(days=7)
+
+
+def new_device_code() -> str:
+    return "".join(secrets.choice(DEVICE_CODE_ALPHABET) for _ in range(DEVICE_CODE_LENGTH))
+
+
+def normalize_device_code(value) -> str | None:
+    """Upper-cased, stripped code, or None when it can't be one."""
+    if not isinstance(value, str):
+        return None
+    code = value.strip().upper()
+    return code if len(code) == DEVICE_CODE_LENGTH else None

@@ -87,6 +87,7 @@ class Session(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     device_group_id = db.Column(db.Integer, db.ForeignKey("groups.id"))
+    device_code_id = db.Column(db.Integer, db.ForeignKey("device_codes.id"), index=True)
     token_hash = db.Column(db.String(64), nullable=False, unique=True)
     kind = db.Column(db.String(10), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
@@ -103,4 +104,5 @@ class DeviceCode(db.Model):
     code_hash = db.Column(db.String(64), nullable=False, unique=True)
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime)
     revoked_at = db.Column(db.DateTime)

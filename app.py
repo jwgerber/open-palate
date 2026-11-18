@@ -7,7 +7,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from config import load_config, normalize_database_url
 from extensions import db, limiter
 from identity import accounts, cli, log_redact, sessions
+from identity.admin_routes import admin_bp
 from identity.auth_routes import auth_bp
+from identity.device_routes import device_bp
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -38,6 +40,8 @@ def create_app(config: dict | None = None) -> Flask:
     limiter.init_app(app)
     sessions.init_app(app)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(device_bp)
     cli.init_app(app)
 
     if app.config.get("LOG_SETUP_LINK", not app.config.get("TESTING")):
