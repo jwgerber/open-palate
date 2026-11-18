@@ -1,0 +1,83 @@
+import os
+import logging
+
+import pytest
+
+from config import load_config
+
+
+def sqlite_env(tmp_path, **extra):
+    return {"DATABASE_URL": f"sqlite:///{tmp_path}/t.db", "BASE_URL": "http://localhost", **extra}
+
+
+def test_env_secret_key_wins(tmp_path):
+    config = load_config(sqlite_env(tmp_path, SECRET_KEY="x"))
+    assert config["SECRET_KEY"] == "x"
+    assert not (tmp_path / "secret_key").exists()
+
+
+def test_sqlite_key_created_beside_db(tmp_path):
+    key = load_config(sqlite_env(tmp_path))["SECRET_KEY"]
+    path = tmp_path / "secret_key"
+    assert len(key) >= 64
+    assert path.read_text().strip() == key
+    assert path.stat().st_mode & 0o777 == 0o600
+
+
+def test_key_is_stable_across_loads(tmp_path):
+    env = sqlite_env(tmp_path)
+    assert load_config(env)["SECRET_KEY"] == load_config(env)["SECRET_KEY"]
+
+
+def test_existing_key_file_wins_over_a_second_create(tmp_path):
+    existing = "abc" * 20
+    (tmp_path / "secret_key").write_text(existing)
+    assert load_config(sqlite_env(tmp_path))["SECRET_KEY"] == existing
+
+
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root ignores permissions")
+def test_unwritable_folder_fails_with_path(tmp_path):
+    folder = tmp_path / "ro"
+    folder.mkdir()
+    folder.chmod(0o500)
+    try:
+        env = {"DATABASE_URL": f"sqlite:///{folder}/t.db", "BASE_URL": "http://localhost"}
+        with pytest.raises(RuntimeError) as exc:
+            load_config(env)
+    finally:
+        folder.chmod(0o700)
+    assert str(folder) in str(exc.value)
+    assert "SECRET_KEY" in str(exc.value)
+
+
+def test_postgres_without_secret_key_fails():
+    with pytest.raises(RuntimeError, match="SECRET_KEY"):
+        load_config({"DATABASE_URL": "postgresql://u@h/db", "BASE_URL": "http://localhost"})
+
+
+def test_base_url_defaults_to_localhost(tmp_path, caplog):
+    env = sqlite_env(tmp_path)
+    del env["BASE_URL"]
+    with caplog.at_level(logging.WARNING):
+        config = load_config(env)
+    assert config["BASE_URL"] == "http://localhost:8000"
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING and "BASE_URL" in r.getMessage()]
+    assert len(warnings) == 1
+
+
+def test_setup_switches(tmp_path):
+    base = sqlite_env(tmp_path)
+    config = load_config(base)
+    assert config["SETUP_OPEN"] is False
+    assert config["SETUP_PASSWORD"] is None
+    assert config["IN_CONTAINER"] is False
+    config = load_config({**base, "SETUP_OPEN": "true", "SETUP_PASSWORD": "", "OPEN_PALATE_CONTAINER": "1"})
+    assert config["SETUP_OPEN"] is True
+    assert config["SETUP_PASSWORD"] is None
+    assert config["IN_CONTAINER"] is True
+
+
+def test_secret_never_logged(tmp_path, caplog):
+    with caplog.at_level(logging.DEBUG):
+        key = load_config(sqlite_env(tmp_path))["SECRET_KEY"]
+    assert key not in caplog.text

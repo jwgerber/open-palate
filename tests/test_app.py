@@ -4,18 +4,17 @@ import utils
 from app import create_app
 
 
-def test_create_app_requires_secret_key(monkeypatch):
+def test_create_app_requires_secret_key_with_postgres(monkeypatch):
     monkeypatch.delenv("SECRET_KEY", raising=False)
-    monkeypatch.setenv("BASE_URL", "http://localhost")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u@h/db")
     with pytest.raises(RuntimeError, match="SECRET_KEY"):
         create_app()
 
 
-def test_create_app_requires_base_url(monkeypatch):
+def test_create_app_defaults_base_url(monkeypatch):
     monkeypatch.setenv("SECRET_KEY", "x")
     monkeypatch.delenv("BASE_URL", raising=False)
-    with pytest.raises(RuntimeError, match="BASE_URL"):
-        create_app()
+    assert create_app().config["BASE_URL"] == "http://localhost:8000"
 
 
 def test_database_url_defaults_to_data_sqlite(monkeypatch):
