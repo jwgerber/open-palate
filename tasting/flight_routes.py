@@ -378,9 +378,11 @@ def export_cupping_csv(flight_id):
 @handle_db_errors("Failed to load palate")
 def get_palate():
     actor = current_actor()
-    member_ids = db.session.execute(
-        db.select(Member.id).where(Member.user_id == actor.user_id)).scalars().all()
+    # This group's member rows, active or not: past reads still belong to them.
+    member_ids = db.session.execute(db.select(Member.id).where(
+        Member.user_id == actor.user_id, Member.group_id == actor.group_id)).scalars().all()
     tz = _group_timezone(actor.group_id)
-    body = palate(actor.user_id, member_ids, tz=tz)
-    body["cupping"] = cupping.cupping_palate(TasterIdentity.from_actor(actor), member_ids, tz=tz)
+    body = palate(actor.group_id, actor.user_id, member_ids, tz=tz)
+    body["cupping"] = cupping.cupping_palate(actor.group_id, TasterIdentity.from_actor(actor),
+                                             member_ids, tz=tz)
     return jsonify(body)

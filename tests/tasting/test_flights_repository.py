@@ -358,7 +358,7 @@ class TestPalate:
             f = make_flight(db_session, group, [c], is_open=False)
             make_tasting(db_session, f, c, overall=ov, taster_key=f"user:{key}")
         db_session.commit()
-        return palate(me.user_id, [me.member_id], tz="UTC")["coffees_tasted"][0]
+        return palate(group.id, me.user_id, [me.member_id], tz="UTC")["coffees_tasted"][0]
 
     def test_theirs_none_with_one_other_person(self, db_session, group, who):
         assert self._row(db_session, group, who, [4, 5], [("a", 2)])["theirs"] is None
@@ -376,7 +376,7 @@ class TestPalate:
         f = make_flight(db_session, group, [c], sheet="advanced", adv_step=0.5, prep="cupping")
         make_tasting(db_session, f, c, adv=8.0, user_id=who.user_id, taster_key=f"user:{who.user_id}")
         db_session.commit()
-        assert palate(who.user_id, [who.member_id], tz="UTC")["tastings"] == 0
+        assert palate(group.id, who.user_id, [who.member_id], tz="UTC")["tastings"] == 0
 
     def test_palate_includes_device_reads_after_link(self, db_session, group):
         """A roster member's device reads join their palate once an account is linked."""
@@ -389,7 +389,7 @@ class TestPalate:
         user = make_user(db_session)
         member.user_id = user.id
         db_session.commit()
-        body = palate(user.id, [member.id], tz="UTC")
+        body = palate(group.id, user.id, [member.id], tz="UTC")
         assert body["tastings"] == 1 and body["coffees_tasted"][0]["yours"] == 5.0
 
     def test_open_flight_reads_stay_out_of_the_palate(self, db_session, group, who):
@@ -401,10 +401,10 @@ class TestPalate:
         make_tasting(db_session, f, c, overall=5, user_id=who.user_id, member_id=who.member_id,
                      taster_key=f"user:{who.user_id}")
         db_session.commit()
-        assert palate(who.user_id, [who.member_id], tz="UTC")["tastings"] == 0
+        assert palate(group.id, who.user_id, [who.member_id], tz="UTC")["tastings"] == 0
         f.is_open = False
         db_session.commit()
-        assert palate(who.user_id, [who.member_id], tz="UTC")["tastings"] == 1
+        assert palate(group.id, who.user_id, [who.member_id], tz="UTC")["tastings"] == 1
 
 
 def test_list_coffees_still_closed_only(db_session, group, who):

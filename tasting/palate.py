@@ -56,17 +56,19 @@ def _last_months(local_now, count: int) -> list:
     return list(reversed(out))
 
 
-def _closed_basic():
+def _closed_basic(group_id: int):
     return (db.select(Tasting).join(TastingFlight, Tasting.flight_id == TastingFlight.id)
-            .where(Tasting.sheet == "basic", closed_flight_clause()))
+            .where(Tasting.sheet == "basic", TastingFlight.group_id == group_id, closed_flight_clause()))
 
 
-def palate(user_id: Optional[int], member_ids, *, tz: str, now=None) -> dict:
-    """Bias, gap series and coffees tasted for one person (``self`` level)."""
+def palate(group_id: int, user_id: Optional[int], member_ids, *, tz: str, now=None) -> dict:
+    """Bias, gap series and coffees tasted for one person (``self`` level), in one
+    group: ``member_ids`` are their rows in that group, and only that group's
+    flights are read."""
     now = now or utc_now()
     clause = mine_clause(user_id, member_ids)
     mine = db.session.execute(
-        _closed_basic().options(selectinload(Tasting.tags), selectinload(Tasting.coffee))
+        _closed_basic(group_id).options(selectinload(Tasting.tags), selectinload(Tasting.coffee))
         .where(clause).order_by(Tasting.created_at)).scalars().all()
     months = _last_months(to_group_local(now, tz), 6)
     if not mine:
@@ -76,7 +78,7 @@ def palate(user_id: Optional[int], member_ids, *, tz: str, now=None) -> dict:
     mine_ids = {t.id for t in mine}
     coffee_ids = {t.coffee_id for t in mine}
     by_coffee = defaultdict(list)
-    for t in db.session.execute(_closed_basic().where(Tasting.coffee_id.in_(coffee_ids))).scalars():
+    for t in db.session.execute(_closed_basic(group_id).where(Tasting.coffee_id.in_(coffee_ids))).scalars():
         by_coffee[t.coffee_id].append(t)
 
     def others_of(cid):

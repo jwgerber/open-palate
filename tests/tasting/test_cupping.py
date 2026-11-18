@@ -222,8 +222,12 @@ class TestCuppingPalate:
     def _others(self, db_session, f, c, n, score=8.0, **kw):
         return [_read(db_session, f, c, f"o{i}", f"Other{i}", score, **kw) for i in range(n)]
 
+    @pytest.fixture(autouse=True)
+    def _group(self, group):
+        self.group = group
+
     def _palate(self, who=None, member_ids=()):
-        return cupping.cupping_palate(who or _who(), list(member_ids), tz="UTC")
+        return cupping.cupping_palate(self.group.id, who or _who(), list(member_ids), tz="UTC")
 
     def test_closed_only(self, db_session, group):
         c = make_coffee(db_session, group)

@@ -240,6 +240,14 @@ class TestDeviceDoor:
         r = world.log(fid, [entry(cs["lot"].id), entry(cs["guji"].id)])
         assert r.status_code == 409 and r.get_json()["error"] == "already_logged"
 
+    def test_phone_then_device_same_cup_conflicts(self, world, cs):
+        fid = world.open_flight([cs["lot"], cs["guji"]], who="editor", prep="drip")
+        mid = world.member_id("member")
+        assert world.log(fid, [entry(cs["lot"].id), entry(cs["guji"].id)]).status_code == 201
+        assert world.get("device", f"/flights/{fid}?member_id={mid}").get_json()["you_logged"] is True
+        r = world.log(fid, [entry(cs["lot"].id), entry(cs["guji"].id)], who="device", pick=mid)
+        assert r.status_code == 409 and r.get_json()["error"] == "already_logged"
+
     def test_unique_index_race_maps_to_409(self, world, cs, monkeypatch):
         """Two taps racing past the Python check: the partial index answers 409."""
         from tasting import flights_repository as frepo
@@ -370,6 +378,34 @@ class TestPalate:
         db_session.commit()
         body = world.get("rowan-phone", "/palate").get_json()
         assert body["tastings"] == 1 and body["coffees_tasted"][0]["name"] == "Guji Shakiso"
+
+
+class TestPalateGroupScope:
+    def test_another_groups_reads_stay_out_of_the_palate(self, world, cs, db_session):
+        """The same person in a second group (an inactive member row there): their
+        closed reads in that group never reach this group's palate."""
+        user = world.members["member"][0]
+        elsewhere = Member(group_id=world.other.id, display_name="Member", role="member",
+                           user_id=user.id, active=False)
+        db_session.add(elsewhere)
+        db_session.flush()
+        theirs = world.coffee(world.other, name="Faraway Lot")
+        basic = make_flight(db_session, world.other, [theirs], is_open=False)
+        make_tasting(db_session, basic, theirs, overall=5, user_id=user.id, member_id=elsewhere.id,
+                     taster_key=f"user:{user.id}")
+        adv = make_flight(db_session, world.other, [theirs], sheet="advanced", adv_step=0.5,
+                          prep="cupping", is_open=False)
+        make_tasting(db_session, adv, theirs, adv=8.0, member_id=elsewhere.id,
+                     taster_key=f"paper:member:{elsewhere.id}", created_via="paper")
+        open_adv = make_flight(db_session, world.other, [theirs], sheet="advanced", adv_step=0.5,
+                               prep="cupping", is_open=True, closes_at=datetime.datetime(2999, 1, 1))
+        make_tasting(db_session, open_adv, theirs, adv=8.0, user_id=user.id, taster_key=f"user:{user.id}")
+        db_session.commit()
+        world.solo([cs["guji"]])
+        body = world.get("member", "/palate").get_json()
+        assert body["tastings"] == 1 and [c["name"] for c in body["coffees_tasted"]] == ["Guji Shakiso"]
+        assert body["cupping"]["reads"] == 0 and body["cupping"]["open_reads"] == 0
+        assert "Faraway" not in str(body)
 
 
 class TestInactiveMemberReadsKept:

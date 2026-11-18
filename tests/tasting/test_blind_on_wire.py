@@ -58,56 +58,38 @@ def _assert_dark(body_text, coffees, where):
     assert not re.search(r'"kind":\s*"(house|cupping_lot|external)"', body_text), where
 
 
-@pytest.mark.parametrize("sheet", ["basic", "advanced"])
-def test_blind_on_wire(world, app, sheet):
-    coffees = [world.coffee(name="Secret Gesha", roaster="Hidden Roasters", origin="Narnia"),
-               world.coffee(name="Quiet Bourbon", roaster="Unseen Co", origin="Atlantis")]
-    host, other = world.member_id("member"), world.member_id("admin")
-    fid = world.open_flight(coffees, who="member", blind=True, prep="cupping",
-                            sheet="advanced" if sheet == "advanced" else None)
+def _q(pick, **more):
+    """A query string from an optional device pick plus extra args."""
+    args = {**({"member_id": pick} if pick is not None else {}), **more}
+    return ("?" + "&".join(f"{k}={v}" for k, v in args.items())) if args else ""
 
-    def entries():
-        if sheet == "advanced":
-            return [dict(adv_entry(8.5), position=p, tags={"Floral": 2}, note="jammy") for p in (1, 2)]
-        return [{"position": p, "overall": 5, "acidity": 4, "tags": {"Floral": 2}, "note": "jammy"} for p in (1, 2)]
 
-    # Everyone but the editor has logged, so there are reads to leak.
-    assert world.log(fid, entries(), who="member").status_code == 201
-    assert world.log(fid, entries(), who="admin").status_code == 201
-    assert world.log(fid, entries(), who="device", pick=world.roster_only("Rowan").id).status_code == 201
-
-    callers = {
-        "member (host)": ("member", ""),
-        "admin (a reader)": ("admin", ""),
-        "editor": ("editor", ""),
-        "device (unpicked)": ("device", ""),
-        "device (the host picked)": ("device", f"?member_id={host}"),
-        "device (a reader picked)": ("device", f"?member_id={other}"),
-    }
+def _walk(world, app, fid, coffees, callers, key_holders):
+    """Every flight GET, recent, the coffee pages, the coffee list with mine=1 and
+    the palate, for each caller; only ``key_holders`` get the label key."""
     paths = _flight_get_routes(app)
     walked = set()
-    for label, (who, qs) in callers.items():
+    for label, (who, pick) in callers.items():
         for rule in paths:
-            path = rule.replace("<int:flight_id>", str(fid))
-            r = world.get(who, path + qs)
+            r = world.get(who, rule.replace("<int:flight_id>", str(fid)) + _q(pick))
             walked.add(rule)
             if rule.endswith("/label-key"):
-                if label == "member (host)":
-                    assert r.status_code == 200      # the documented exception
+                if label in key_holders:
+                    assert r.status_code == 200, label      # the documented exception
                     continue
                 assert r.status_code == 403, (label, r.status_code)
             assert r.status_code in (200, 403, 404, 409), (label, rule, r.status_code)
             _assert_dark(r.get_data(as_text=True), coffees, (label, rule))
-        recent = world.get(who, "/flights/recent" + qs)
+        recent = world.get(who, "/flights/recent" + _q(pick))
         if recent.status_code == 200:
             _assert_dark(recent.get_data(as_text=True), coffees, (label, "recent"))
         for coffee in coffees:
             for path in (f"/coffees/{coffee.id}", f"/coffees/{coffee.id}/sessions"):
-                r = world.get(who, path + qs)
-                body = r.get_json()
+                body = world.get(who, path + _q(pick)).get_json()
                 assert body.get("n", 0) == 0 and not body.get("yours") and not body.get("sessions"), (label, path)
-        coffees_list = world.get(who, "/coffees" + qs).get_json()["coffees"]
-        assert all(c["n"] == 0 and not c["tasted_by_me"] for c in coffees_list), label
+        listed = world.get(who, "/coffees" + _q(pick, mine=1))
+        assert listed.status_code == 200, (label, listed.get_json())
+        assert all(c["n"] == 0 and not c["tasted_by_me"] for c in listed.get_json()["coffees"]), label
         if who != "device":
             palate = world.get(who, "/palate").get_json()
             assert palate["tastings"] == 0 and palate["cupping"]["reads"] == 0, label
@@ -117,4 +99,77 @@ def test_blind_on_wire(world, app, sheet):
                 "/flights/<int:flight_id>/summary", "/flights/<int:flight_id>/export.csv",
                 "/flights/<int:flight_id>/label-key"}
     assert expected <= set(paths), paths
+
+
+def _entries(sheet):
+    if sheet == "advanced":
+        return [dict(adv_entry(8.5), position=p, tags={"Floral": 2}, note="jammy") for p in (1, 2)]
+    return [{"position": p, "overall": 5, "acidity": 4, "tags": {"Floral": 2}, "note": "jammy"} for p in (1, 2)]
+
+
+def _secrets(world):
+    return [world.coffee(name="Secret Gesha", roaster="Hidden Roasters", origin="Narnia"),
+            world.coffee(name="Quiet Bourbon", roaster="Unseen Co", origin="Atlantis")]
+
+
+def _writes_stay_dark(world, fid, coffees, sheet, host, host_pick=None):
+    """Write answers while the flight is open: a log, the timer and pass, a paper
+    sheet, and a non-host's refused close."""
+    def dark(r, label):
+        assert r.status_code < 500, (label, r.status_code)
+        _assert_dark(r.get_data(as_text=True), coffees, label)
+
+    world.person("late")
+    dark(world.log(fid, _entries(sheet), who="late"), "log")
+    body = {} if host_pick is None else {"member_id": host_pick}
+    dark(world.send(host, "post", f"/flights/{fid}/timer", json=body), "timer")
+    dark(world.send(host, "post", f"/flights/{fid}/pass", json={**body, "pass": 1}), "pass")
+    dark(world.send(host, "post", f"/flights/{fid}/paper",
+                    json={**body, "guest_name": "Pat", "entries": _entries("advanced")}), "paper")
+    refused = world.close(fid, "late")
+    assert refused.status_code == 403
+    dark(refused, "close by a non-host")
+
+
+@pytest.mark.parametrize("sheet", ["basic", "advanced"])
+def test_blind_on_wire(world, app, sheet):
+    coffees = _secrets(world)
+    host, other = world.member_id("member"), world.member_id("admin")
+    fid = world.open_flight(coffees, who="member", blind=True, prep="cupping",
+                            sheet="advanced" if sheet == "advanced" else None)
+    # Everyone but the editor has logged, so there are reads to leak.
+    assert world.log(fid, _entries(sheet), who="member").status_code == 201
+    assert world.log(fid, _entries(sheet), who="admin").status_code == 201
+    assert world.log(fid, _entries(sheet), who="device", pick=world.roster_only("Rowan").id).status_code == 201
+    _writes_stay_dark(world, fid, coffees, sheet, "member")
+    callers = {
+        "member (host)": ("member", None),
+        "admin (a reader)": ("admin", None),
+        "editor": ("editor", None),
+        "device (unpicked)": ("device", None),
+        "device (the host picked)": ("device", host),
+        "device (a reader picked)": ("device", other),
+    }
+    _walk(world, app, fid, coffees, callers, key_holders={"member (host)"})
+    db.session.rollback()
+
+
+@pytest.mark.parametrize("sheet", ["basic", "advanced"])
+def test_blind_on_wire_device_hosted(world, app, sheet):
+    """A flight hosted from the shared device: the host is the picked member, and
+    their linked account holds the host powers on the account door."""
+    coffees = _secrets(world)
+    _, dhost = world.person("dhost", name="Device Host")
+    fid = world.open_flight(coffees, who="device", pick=dhost.id, blind=True, prep="cupping",
+                            sheet="advanced" if sheet == "advanced" else None)
+    assert world.log(fid, _entries(sheet), who="device", pick=dhost.id).status_code == 201
+    assert world.log(fid, _entries(sheet), who="admin").status_code == 201
+    _writes_stay_dark(world, fid, coffees, sheet, "device", host_pick=dhost.id)
+    callers = {
+        "linked account of the device host": ("dhost", None),
+        "device (the host picked)": ("device", dhost.id),
+        "admin (a reader)": ("admin", None),
+        "editor": ("editor", None),
+    }
+    _walk(world, app, fid, coffees, callers, key_holders={"linked account of the device host"})
     db.session.rollback()

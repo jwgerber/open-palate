@@ -11,7 +11,8 @@ tasting gets its group through its flight.
 Identity: ``taster_key`` is one of ``user:<id>``, ``member:<id>``,
 ``paper:member:<id>`` or ``paper:name:<name>``. It drives the per-flight
 uniqueness and the "tasted by me" filter. ``created_via`` records which door
-asserted the identity; palate stats count only ``account`` rows.
+asserted the identity. A person's palate counts every door: rows with their
+``user_id`` or one of their ``member_id`` rows in the group (``tasting/palate.py``).
 
 Two score sheets, chosen per flight (``sheet``, copied onto each tasting).
 ``basic``: scales are 1-5; an untouched slider is NULL, never the midpoint, and

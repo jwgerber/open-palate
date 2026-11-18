@@ -178,13 +178,14 @@ def _is_mine(t: Tasting, who: TasterIdentity, member_ids) -> bool:
             or (t.member_id is not None and t.member_id in member_ids))
 
 
-def cupping_palate(who: TasterIdentity, member_ids, *, tz: str) -> dict:
-    """Your closed advanced reads, and how they sit against the room. Stars and
-    totals are never combined; no other taster is named; a room number needs
-    CALIBRATION_MIN_OTHERS other reads on that cup."""
+def cupping_palate(group_id: int, who: TasterIdentity, member_ids, *, tz: str) -> dict:
+    """Your closed advanced reads in one group, and how they sit against the room.
+    Stars and totals are never combined; no other taster is named; a room number
+    needs CALIBRATION_MIN_OTHERS other reads on that cup."""
     member_ids = set(member_ids)
-    base = db.select(Tasting).where(Tasting.sheet == "advanced", _mine(who, member_ids))
-    closed = base.join(TastingFlight, Tasting.flight_id == TastingFlight.id).where(closed_flight_clause())
+    base = (db.select(Tasting).join(TastingFlight, Tasting.flight_id == TastingFlight.id)
+            .where(Tasting.sheet == "advanced", TastingFlight.group_id == group_id, _mine(who, member_ids)))
+    closed = base.where(closed_flight_clause())
     count = db.select(db.func.count()).select_from
     open_reads = db.session.scalar(count(base.subquery())) - db.session.scalar(count(closed.subquery()))
     mine = [t for t in db.session.execute(
