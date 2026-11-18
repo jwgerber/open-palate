@@ -32,7 +32,7 @@ const LIST = { coffees: [{ id: 11, name: 'Kiambu' }, { id: 12, name: 'Guji' }, {
 
 const flight = (over = {}) => ({
   id: 9, name: 'Dark roasts', sheet: 'advanced', is_open: true, is_blind: true, is_host: true, is_shared: true, prep: 'cupping',
-  created_via: 'account', store_id: null, adv_pass: null, timer_started_at: null, timer_elapsed_s: null, logged_count: 0,
+  created_via: 'account', adv_pass: null, timer_started_at: null, timer_elapsed_s: null, logged_count: 0,
   roster: [], cups: [{ position: 1, label: 'Cup A', blind: true, blind_label: 'A' }], ...over,
 });
 

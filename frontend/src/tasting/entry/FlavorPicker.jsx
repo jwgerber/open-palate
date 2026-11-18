@@ -2,7 +2,7 @@
  * Flavors — the picked tray, the breadcrumb, the wheel and the Search list.
  *
  * The tray groups picked terms by family (tap a family name to jump the wheel
- * there), shows the §5.2 auto sentence in italics (display only — never saved
+ * there), shows the auto sentence in italics (display only — never saved
  * to `note`), and removes a term with ×. Search is the accessible fast path:
  * a plain filtered list of every lexicon term.
  */

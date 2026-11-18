@@ -13,16 +13,16 @@ const identity = (auth) => {
 
 describe('useTastingIdentity', () => {
   it.each([
-    ['member', { isPerson: true, canManage: false, canCloseAny: false, isSharedDevice: false, canKiosk: false }],
-    ['editor', { isPerson: true, canManage: true, canCloseAny: false, isSharedDevice: false, canKiosk: false }],
-    ['admin', { isPerson: true, canManage: true, canCloseAny: true, isSharedDevice: false, canKiosk: false }],
+    ['member', { isPerson: true, canManage: false, canCloseAny: false, isSharedDevice: false }],
+    ['editor', { isPerson: true, canManage: true, canCloseAny: false, isSharedDevice: false }],
+    ['admin', { isPerson: true, canManage: true, canCloseAny: true, isSharedDevice: false }],
   ])('a signed-in %s', (role, expected) => {
     expect(identity({ kind: 'user', role })).toMatchObject(expected);
   });
 
   it('a shared device is not a person and manages nothing', () => {
     expect(identity({ kind: 'device', role: null })).toMatchObject({
-      isPerson: false, canManage: false, canCloseAny: false, isSharedDevice: true, canKiosk: true,
+      isPerson: false, canManage: false, canCloseAny: false, isSharedDevice: true,
     });
   });
 

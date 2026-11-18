@@ -1,5 +1,5 @@
 /**
- * Reveal — what earns the next entry (spec §5.2). Two states:
+ * Reveal — what earns the next entry. Two states:
  *
  * WAITING (a shared flight still open): "Logged", the roster, and — for the
  * host, or an admin holding a group admin — "Close flight & reveal".

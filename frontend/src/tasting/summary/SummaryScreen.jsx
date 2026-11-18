@@ -1,5 +1,5 @@
 /**
- * The Advanced cupping summary (spec §7): the ranking, then one collapsible card per
+ * The Advanced cupping summary: the ranking, then one collapsible card per
  * coffee. While the flight is open (no result yet) it is the same waiting state
  * the basic flight uses. A summary body has `coffees`, not `cups`, which is why
  * a Advanced flight must never be routed through RevealScreen.

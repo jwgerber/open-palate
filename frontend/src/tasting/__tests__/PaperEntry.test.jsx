@@ -33,19 +33,19 @@ beforeEach(() => {
 describe('mayEnterPaper', () => {
   const advanced = { sheet: 'advanced', is_host: false };
   it.each([
-    ['non-host manager', advanced, { canManage: true, canKiosk: false }, true],
-    ['host on the shared device', { ...advanced, is_host: true }, { canManage: false, canKiosk: true }, true],
-    ['non-host shared device', advanced, { canManage: false, canKiosk: true }, false],
-    ['member host', { ...advanced, is_host: true }, { canManage: false, canKiosk: false }, true],
-    ['non-host member', advanced, { canManage: false, canKiosk: false }, false],
-    ['basic flight', { sheet: 'basic', is_host: true }, { canManage: true, canKiosk: true }, false],
+    ['non-host manager', advanced, { canManage: true, isSharedDevice: false }, true],
+    ['host on the shared device', { ...advanced, is_host: true }, { canManage: false, isSharedDevice: true }, true],
+    ['non-host shared device', advanced, { canManage: false, isSharedDevice: true }, false],
+    ['member host', { ...advanced, is_host: true }, { canManage: false, isSharedDevice: false }, true],
+    ['non-host member', advanced, { canManage: false, isSharedDevice: false }, false],
+    ['basic flight', { sheet: 'basic', is_host: true }, { canManage: true, isSharedDevice: true }, false],
   ])('%s -> %s', (_n, flight, who, expected) => {
     expect(mayEnterPaper(flight, who)).toBe(expected);
   });
 });
 
 describe('PaperTasterScreen', () => {
-  it('loads tiles from getMembers and picks an employee', async () => {
+  it('loads tiles from getMembers and picks a member', async () => {
     const onPick = vi.fn();
     render(<PaperTasterScreen onPick={onPick} onClose={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Pat' }));
@@ -104,7 +104,7 @@ describe('PaperEntryDialog', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ taster_key: 'paper:guest:sam', taster_name: 'Sam', count: 1 }));
   });
 
-  it('sends the picked employee and the shared device identity', async () => {
+  it('sends the picked member and the shared device identity', async () => {
     setup({ memberId: 3 });
     fireEvent.click(await screen.findByRole('button', { name: 'Pat' }));
     scoreCupA(); openAll();

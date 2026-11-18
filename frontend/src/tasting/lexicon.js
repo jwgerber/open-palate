@@ -78,7 +78,7 @@ export function removeTag(tags, key) {
 
 const list = (a) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
 
-/** The §5.2 sentence. Display only — never saved to `note`. */
+/** The auto sentence built from the picked words. Display only — never saved to `note`. */
 export function describe(tags) {
   const strong = Object.keys(tags).filter((k) => tags[k] === 3).map(labelOf);
   const mild = Object.keys(tags).filter((k) => tags[k] === 2).map(labelOf);

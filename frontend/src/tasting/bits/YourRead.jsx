@@ -1,6 +1,6 @@
 /**
  * One person's read of a coffee, for that person: Overall stars, the four
- * attribute words, the §5.2 sentence, the note, defects. Rendered inside the
+ * attribute words, the auto sentence, the note, defects. Rendered inside the
  * caller's Card on the reveal and on the coffee page. `read` is the
  * `_entry_dict` shape (vals + sentence + tags + defects + note).
  */

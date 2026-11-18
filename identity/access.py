@@ -1,16 +1,16 @@
 """Access layer: who is calling (an Actor) and what level a route needs.
 
-Replaces the old per-key permission model with group roles:
+Access is decided by group role, in five levels:
 
-=========  =====================================  ==========================
-level      who passes                             permission key it replaces
-=========  =====================================  ==========================
-member     any session in the group               tasting.view / .edit
-self       a user session (a person)              tasting.self
-device     a shared-device session                tasting.kiosk
-manage     a user whose role is editor or admin   tasting.manage
-admin      a user whose role is admin             tasting.close_any, admin
-=========  =====================================  ==========================
+=========  =====================================
+level      who passes
+=========  =====================================
+member     any session in the group
+self       a user session (a person)
+device     a shared-device session
+manage     a user whose role is editor or admin
+admin      a user whose role is admin
+=========  =====================================
 
 Phase 1 has one group per install. A user's group is their single ACTIVE
 member row (none: 403 ``no_group``; more than one: 403 ``ambiguous_group``,

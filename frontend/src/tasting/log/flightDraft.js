@@ -1,6 +1,6 @@
 /**
  * The flight draft — a pure reducer holding everything a flight collects
- * before the ONE write that logs it (spec §5.3). Every cup's form state lives
+ * before the ONE write that logs it. Every cup's form state lives
  * here so switching cups is a state swap with zero network.
  *
  * `picked` holds coffee OBJECTS ({ id, name, roaster, kind, n, ... }) in pour

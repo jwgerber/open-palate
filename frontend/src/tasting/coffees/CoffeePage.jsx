@@ -2,7 +2,7 @@
  * A coffee's page — its facts, three summary cards (cuppings, basic sheet, your
  * lean against the room) and every tasting session of the coffee, newest first.
  * Per-person names and scores live only in the sessions list, where the server
- * decides what each viewer may see (spec §5.1).
+ * decides what each viewer may see.
  *
  * The pencil (Editor or admin) opens EditCoffeeDialog; "+ Taste this coffee" hands the
  * coffee to the Log tab.

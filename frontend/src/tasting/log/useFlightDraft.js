@@ -2,15 +2,14 @@
  * The flight draft as React state, surviving tab switches and refreshes.
  *
  * Switching to Coffees or My palate unmounts the Log tab; a half-entered
- * flight must not die with it (spec §5.3). The last draft is parked in a
+ * flight must not die with it. The last draft is parked in a
  * module-level slot and re-adopted on the next mount — screen reset to the
  * tab root is the caller's job (`dispatch({ type: 'screen', screen: 'landing' })`)
  * when that is what the product wants.
  *
  * A refresh clears that slot too, so an unlogged draft is also saved on the
  * device after every change (`draftStorage.js`). That is refresh protection
- * only: logging still needs a connection and there is no offline queue
- * (decision 2026-09-10).
+ * only: logging still needs a connection and there is no offline queue.
  */
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { reducer, initialDraft } from './flightDraft';
@@ -29,7 +28,7 @@ function firstDraft(owner, flightId) {
 }
 
 /**
- * `owner` scopes the draft to an identity (the Supabase user id): a sign-out
+ * `owner` scopes the draft to an identity (a stable id for whoever is signed in): a sign-out
  * is a SPA state change, not a reload, so without this the next person to sign
  * in on the same device would inherit a half-scored flight and log it under
  * their own name. `flightId` is the flight a link names: only that flight's

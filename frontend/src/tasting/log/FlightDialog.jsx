@@ -11,7 +11,7 @@
  * The coffee list is fetched ONCE per flight here (cached a minute in the
  * API client) and handed to the picker and the add form. Online only: the
  * write buttons disable when the connection drops and the draft waits, in
- * memory and saved on the device against a refresh (decision 2026-09-10,
+ * memory and saved on the device against a refresh (see
  * `useFlightDraft`). Nothing autofocuses.
  */
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';

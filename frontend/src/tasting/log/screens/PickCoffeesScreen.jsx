@@ -5,7 +5,7 @@
  * The picked box shows the POUR NUMBER; un-picking renumbers the rest. Pour
  * order is reordered by press-and-drag on the handle only (dnd-kit, the
  * activator is the handle), never by arrows. The list never shows a score or
- * a tag — only a tasting count (spec §5.1). The coffee list arrives from
+ * a tag — only a tasting count. The coffee list arrives from
  * FlightDialog (`coffees`, null while loading).
  */
 import { useMemo, useState } from 'react';
