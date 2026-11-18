@@ -23,8 +23,11 @@ def database_url() -> str:
     url = config.get_main_option("sqlalchemy.url")
     if url:
         return normalize_database_url(url)
+    import os
+
     from app import create_app
 
+    os.environ["LOG_SETUP_LINK"] = "0"  # the server logs it, after migrating
     return create_app().config["SQLALCHEMY_DATABASE_URI"]
 
 

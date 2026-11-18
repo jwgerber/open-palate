@@ -20,7 +20,7 @@ def load_config(env=os.environ) -> dict:
     for name in ("SECRET_KEY", "BASE_URL"):
         if not env.get(name):
             raise RuntimeError(f"{name} must be set")
-    return {
+    settings = {
         "SECRET_KEY": env["SECRET_KEY"],
         "BASE_URL": env["BASE_URL"].rstrip("/"),
         "SQLALCHEMY_DATABASE_URI": normalize_database_url(env.get("DATABASE_URL") or DEFAULT_DATABASE_URL),
@@ -35,3 +35,8 @@ def load_config(env=os.environ) -> dict:
         "ANTHROPIC_API_KEY": env.get("ANTHROPIC_API_KEY") or None,
         "SCAN_MODELS": DEFAULT_SCAN_MODELS,
     }
+    # Set by migrations/env.py: the migration process builds the app on a database
+    # that may not be migrated yet, and must not log (or fail on) the setup link.
+    if env.get("LOG_SETUP_LINK") is not None:
+        settings["LOG_SETUP_LINK"] = env["LOG_SETUP_LINK"].strip().lower() in ("1", "true", "yes")
+    return settings

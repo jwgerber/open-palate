@@ -38,7 +38,7 @@ def test_proxy_hops_zero_disables_proxyfix(monkeypatch):
 
 def test_fixtures_work(app, client, db_session):
     assert app.config["BASE_URL"] == "http://localhost"
-    assert client.get("/nope").status_code == 404
+    assert client.get("/api/nope").status_code == 404
 
 
 def test_utc_now_is_naive():

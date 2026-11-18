@@ -6,6 +6,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import load_config, normalize_database_url
 from extensions import db, limiter
+import tasting_cli
+import web
 from identity import accounts, cli, log_redact, sessions
 from identity.admin_routes import admin_bp
 from identity.auth_routes import auth_bp
@@ -49,6 +51,8 @@ def create_app(config: dict | None = None) -> Flask:
     app.register_blueprint(content_bp)
     content.load()  # read the content files once, and fail at startup if they are missing
     cli.init_app(app)
+    tasting_cli.init_app(app)
+    web.init_app(app)  # last: its catch-all route must not shadow the blueprints
 
     if app.config.get("LOG_SETUP_LINK", not app.config.get("TESTING")):
         accounts.log_setup_link_if_needed(app)
