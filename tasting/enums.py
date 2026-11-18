@@ -23,4 +23,4 @@ TAG_STRENGTHS = (2, 3)       # 2 = picked, 3 = strong
 
 # Who asserted the identity on a read: a signed-in account, the shared
 # tablet, or a manager keying in a paper sheet.
-CREATED_VIA = ("account", "kiosk", "paper")
+CREATED_VIA = ("account", "device", "paper")

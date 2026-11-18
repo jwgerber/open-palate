@@ -22,7 +22,7 @@ ADV_CATEGORIES = (
 )
 
 _SHEET = "sheet IN ('basic','advanced')"
-_VIA = "created_via IN ('account','kiosk','paper')"
+_VIA = "created_via IN ('account','device','paper')"
 _SHAPE_BASIC = (
     "(sheet = 'basic' AND overall IS NOT NULL AND overall BETWEEN 1 AND 5 AND bar_vote IS NULL AND "
     + " AND ".join(f"adv_{c} IS NULL" for c in ADV_CATEGORIES) + ")")

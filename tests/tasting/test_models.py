@@ -367,7 +367,9 @@ class TestMigrationPins:
         for table in db.metadata.tables.values():
             if table.name.startswith("tast"):
                 for i in table.indexes:
+                    pg = i.dialect_options["postgresql"]["where"]
+                    lite = i.dialect_options["sqlite"]["where"]
+                    assert (None if pg is None else str(pg)) == (None if lite is None else str(lite))
                     model[i.name] = (table.name, tuple(c.name for c in i.columns), bool(i.unique),
-                                     str(i.dialect_options["postgresql"]["where"])
-                                     if i.dialect_options["postgresql"]["where"] is not None else None)
+                                     None if pg is None else str(pg))
         assert model == m.INDEXES

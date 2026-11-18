@@ -20,7 +20,7 @@ def make_user(db_session, email=None):
     return user
 
 
-def make_member(db_session, group, name="Kelley", **kw):
+def make_member(db_session, group, name="Alex", **kw):
     member = Member(group_id=group.id, display_name=name, role=kw.pop("role", "member"), **kw)
     db_session.add(member)
     db_session.flush()
@@ -39,7 +39,7 @@ def make_coffee(db_session, group, name=None, roaster="Roaster", kind="house", *
 def make_flight(db_session, group, coffees, **kw):
     from tasting.models import TastingFlight, TastingFlightCoffee
     now = datetime.datetime(2026, 9, 10, 14, 0, 0)
-    defaults = dict(group_id=group.id, prep="drip", host_name="Kelley",
+    defaults = dict(group_id=group.id, prep="drip", host_name="Alex",
                     opened_at=now, closes_at=now + datetime.timedelta(hours=24))
     defaults.update(kw)
     flight = TastingFlight(**defaults)
@@ -57,7 +57,7 @@ def make_tasting(db_session, flight, coffee, adv=None, **kw):
         kw = {"sheet": "advanced", "overall": None, "bar_vote": kw.pop("bar_vote", "yes"),
               **{f"adv_{c}": adv for c in ADV_CATEGORIES}, **kw}
     defaults = dict(flight_id=flight.id, coffee_id=coffee.id,
-                    taster_key=f"user:{uuid.uuid4().hex[:6]}", taster_name="Kelley", overall=4)
+                    taster_key=f"user:{uuid.uuid4().hex[:6]}", taster_name="Alex", overall=4)
     defaults.update(kw)
     if adv is not None:
         defaults["overall"] = kw.get("overall")
