@@ -11,6 +11,8 @@ import GroupSettingsPage from '../GroupSettingsPage';
 const members = [
   { id: 1, display_name: 'Robin Admin', email: 'robin@example.test', role: 'admin', active: true, signed_up: true },
   { id: 2, display_name: 'Jo Floor', email: null, role: 'member', active: true, signed_up: false },
+  { id: 3, display_name: 'Sam Mail', email: 'sam@example.test', role: 'member', active: true, signed_up: false },
+  { id: 4, display_name: 'Gone Away', email: 'gone@example.test', role: 'member', active: false, signed_up: false },
 ];
 
 beforeEach(() => {
@@ -155,6 +157,53 @@ describe('GroupSettingsPage', () => {
       api.patch.mockRejectedValueOnce({ response: { status: 409, data: { error: 'email_in_use' } } });
       await userEvent.click(screen.getByRole('button', { name: 'Save member' }));
       expect(await screen.findByText(/already belongs to another member/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('copy sign-in link', () => {
+    const LINK = 'http://localhost/api/auth/consume?token=abc';
+    const rowOf = async (name) => (await screen.findByText(name)).closest('div').parentElement;
+
+    it('posts, copies the link, and says it works once for 24 hours', async () => {
+      const writeText = vi.fn(() => Promise.resolve());
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      api.post.mockResolvedValue({ data: { link: LINK, expires_at: '2030-01-01T00:00:00+00:00' } });
+      render(<GroupSettingsPage />);
+      await userEvent.click(within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' }));
+      await waitFor(() => expect(api.post).toHaveBeenCalledWith('/group/members/3/signin-link'));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(LINK));
+      expect(await screen.findByText('Copied. Works once, for 24 hours.')).toBeInTheDocument();
+      expect(screen.queryByDisplayValue(LINK)).toBeNull();
+    });
+
+    it('falls back to a read-only field when the clipboard refuses', async () => {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(() => Promise.reject(new Error('no'))) }, configurable: true });
+      api.post.mockResolvedValue({ data: { link: LINK, expires_at: '2030-01-01T00:00:00+00:00' } });
+      render(<GroupSettingsPage />);
+      await userEvent.click(within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' }));
+      const field = await screen.findByDisplayValue(LINK);
+      expect(field).toHaveAttribute('readonly');
+      expect(screen.getByText(/Copy it from here/)).toBeInTheDocument();
+    });
+
+    it('disables the button with a hint when the member has no email', async () => {
+      render(<GroupSettingsPage />);
+      const row = await rowOf('Jo Floor');
+      expect(within(row).getByRole('button', { name: 'Copy sign-in link' })).toBeDisabled();
+      expect(within(row).getByText('Add an email first')).toBeInTheDocument();
+    });
+
+    it('offers nothing for an inactive member', async () => {
+      render(<GroupSettingsPage />);
+      const row = await rowOf('Gone Away');
+      expect(within(row).queryByRole('button', { name: 'Copy sign-in link' })).toBeNull();
+    });
+
+    it('explains a refusal in plain words', async () => {
+      api.post.mockRejectedValue({ response: { status: 409, data: { error: 'other_group' } } });
+      render(<GroupSettingsPage />);
+      await userEvent.click(within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' }));
+      expect(await screen.findByText('This email belongs to someone in another group.')).toBeInTheDocument();
     });
   });
 });

@@ -57,8 +57,16 @@ function GroupName({ group, onSaved }) {
   );
 }
 
+const LINK_ERRORS = {
+  other_group: 'This email belongs to someone in another group.',
+  not_linked: "Couldn't link this person's account.",
+};
+
 function MemberRow({ member, onChange, onError }) {
   const [editing, setEditing] = useState(false);
+  // The link lives in this state only: never stored, never logged. It is set only when the clipboard refuses.
+  const [fallbackLink, setFallbackLink] = useState(null);
+  const [copied, setCopied] = useState(false);
   const [name, setName] = useState(member.display_name);
   const [email, setEmail] = useState(member.email ?? '');
   const patch = async (changes) => {
@@ -73,7 +81,19 @@ function MemberRow({ member, onChange, onError }) {
       return false;
     }
   };
-  const startEdit = () => { setName(member.display_name); setEmail(member.email ?? ''); setEditing(true); };
+  const copyLink = async () => {
+    setCopied(false); setFallbackLink(null);
+    let link;
+    try {
+      link = (await api.post(`/group/members/${member.id}/signin-link`)).data.link;
+    } catch (e) {
+      onError(LINK_ERRORS[e.response?.data?.error] ?? apiErrorMessage(e, "Couldn't make a sign-in link."));
+      return;
+    }
+    try { await navigator.clipboard.writeText(link); setCopied(true); }
+    catch { setFallbackLink(link); }
+  };
+  const startEdit = () => { setFallbackLink(null); setCopied(false); setName(member.display_name); setEmail(member.email ?? ''); setEditing(true); };
   const saveEdit = async () => {
     const changes = {};
     if (name.trim() !== member.display_name) changes.display_name = name.trim();
@@ -105,6 +125,21 @@ function MemberRow({ member, onChange, onError }) {
         {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
       </TextField>
       <FormControlLabel control={<Switch checked={member.active} onChange={(e) => patch({ active: e.target.checked })} />} label="Active" />
+      {member.active && (
+        <Box sx={{ flexBasis: '100%' }}>
+          <Button size="small" onClick={copyLink} disabled={!member.email}>Copy sign-in link</Button>
+          {!member.email && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>Add an email first</Typography>}
+          {copied && <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>Copied. Works once, for 24 hours.</Typography>}
+          {fallbackLink && (
+            <TextField
+              size="small" fullWidth value={fallbackLink} onFocus={(e) => e.target.select()}
+              slotProps={{ htmlInput: { readOnly: true, 'aria-label': 'Sign-in link' } }}
+              helperText="Copy it from here. Works once, for 24 hours."
+              sx={{ mt: 0.5 }}
+            />
+          )}
+        </Box>
+      )}
     </Box>
   );
 }
