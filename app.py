@@ -1,9 +1,13 @@
 """Flask application factory."""
+import logging
+
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import load_config, normalize_database_url
-from extensions import db
+from extensions import db, limiter
+from identity import accounts, cli, sessions
+from identity.auth_routes import auth_bp
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -16,6 +20,7 @@ def create_app(config: dict | None = None) -> Flask:
                 raise RuntimeError(f"{name} must be set")
         settings.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:////data/tasting.db")
         settings.setdefault("PROXY_HOPS", 1)
+        settings["BASE_URL"] = settings["BASE_URL"].rstrip("/")
     settings["SQLALCHEMY_DATABASE_URI"] = normalize_database_url(
         settings["SQLALCHEMY_DATABASE_URI"])
     app.config.update(settings)
@@ -24,5 +29,16 @@ def create_app(config: dict | None = None) -> Flask:
     if hops > 0:
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops)
 
+    if not app.config.get("TESTING"):
+        # INFO reaches the log: the no-SMTP sign-in link is delivered there.
+        logging.basicConfig(level=logging.INFO)
+
     db.init_app(app)
+    limiter.init_app(app)
+    sessions.init_app(app)
+    app.register_blueprint(auth_bp)
+    cli.init_app(app)
+
+    if app.config.get("LOG_SETUP_LINK", not app.config.get("TESTING")):
+        accounts.log_setup_link_if_needed(app)
     return app

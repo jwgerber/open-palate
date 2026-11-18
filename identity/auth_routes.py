@@ -1,0 +1,142 @@
+"""/api/auth: email sign-in links, first-admin setup, logout, who-am-I."""
+import logging
+
+from flask import Blueprint, current_app, jsonify, redirect, request
+from sqlalchemy import update
+
+from extensions import db, limiter
+from identity import mail
+from identity.accounts import (active_member_for_email, admin_exists, default_display_name,
+                               ensure_admin, find_user, issue_signin_link, link_roster_members,
+                               normalize_email, setup_token_valid)
+from identity.models import Group, LoginToken, Member, User
+from identity.sessions import current_session, end_session, start_user_session
+from identity.tokens import hash_token
+from utils import get_json_object, handle_db_errors, utc_now
+
+logger = logging.getLogger(__name__)
+
+auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+
+
+def _email_error():
+    return jsonify({"error": "Enter a valid email address", "field": "email"}), 400
+
+
+@auth_bp.post("/request-link")
+@limiter.limit("5/minute")
+@handle_db_errors("Could not send a sign-in link")
+def request_link():
+    data, error = get_json_object()
+    if error:
+        return error
+    email = normalize_email(data.get("email"))
+    if email is None:
+        return _email_error()
+
+    # Same reply whether or not the address is known: no account enumeration.
+    user = find_user(email)
+    if user is None:
+        member = active_member_for_email(email)
+        if member is not None or current_app.config.get("ALLOW_SIGNUP"):
+            user = User(email=email, display_name=(
+                member.display_name if member is not None else default_display_name(email)))
+            db.session.add(user)
+            db.session.flush()
+    if user is not None:
+        link = issue_signin_link(user)
+        db.session.commit()
+        try:
+            mail.send_signin_email(user.email, link)
+        except Exception:
+            # Logged, not raised: a 500 here would reveal the address is known.
+            logger.exception("Sign-in email to user %s failed", user.id)
+    return jsonify({"status": "sent"})
+
+
+@auth_bp.get("/consume")
+@handle_db_errors("Could not sign in")
+def consume():
+    base = current_app.config["BASE_URL"]
+    raw = request.args.get("token", "")
+    now = utc_now()
+    token = db.session.execute(
+        db.select(LoginToken).where(LoginToken.token_hash == hash_token(raw),
+                                    LoginToken.purpose == "signin")
+    ).scalar_one_or_none() if raw else None
+    # Conditional UPDATE so two concurrent opens can't both redeem the link.
+    claimed = token is not None and db.session.execute(
+        update(LoginToken)
+        .where(LoginToken.id == token.id, LoginToken.used_at.is_(None),
+               LoginToken.expires_at > now)
+        .values(used_at=now)
+    ).rowcount == 1
+    if not claimed:
+        db.session.rollback()
+        return redirect(f"{base}/signin?error=expired")
+
+    user = db.session.get(User, token.user_id)
+    user.last_login_at = now
+    link_roster_members(user)
+    set_cookie = start_user_session(user)
+    db.session.commit()
+    return set_cookie(redirect(f"{base}/"))
+
+
+@auth_bp.post("/setup")
+@handle_db_errors("Could not finish setup")
+def setup():
+    data, error = get_json_object()
+    if error:
+        return error
+    if not setup_token_valid(data.get("token")):
+        return jsonify({"error": "invalid_token"}), 400
+    if admin_exists():
+        return jsonify({"error": "setup_done"}), 409
+    email = normalize_email(data.get("email"))
+    if email is None:
+        return _email_error()
+    display_name = data.get("display_name")
+    display_name = display_name.strip() if isinstance(display_name, str) else ""
+    if not display_name or len(display_name) > 120:
+        return jsonify({"error": "Enter a name (up to 120 characters)",
+                        "field": "display_name"}), 400
+
+    user = ensure_admin(email, display_name)
+    user.last_login_at = utc_now()
+    link_roster_members(user)
+    set_cookie = start_user_session(user)
+    db.session.commit()
+    return set_cookie(jsonify({"status": "ok"}))
+
+
+@auth_bp.post("/logout")
+@handle_db_errors("Could not sign out")
+def logout():
+    return end_session(jsonify({"status": "signed_out"}))
+
+
+def _group_dict(group: Group, role: str | None) -> dict:
+    return {"id": group.id, "name": group.name, "role": role, "timezone": group.timezone}
+
+
+@auth_bp.get("/me")
+@handle_db_errors("Could not load the session")
+def me():
+    session = current_session()
+    if session is None:
+        return jsonify({"error": "unauthorized"}), 401
+    if session.kind == "device":
+        group = db.session.get(Group, session.device_group_id)
+        return jsonify({"user": None, "groups": [_group_dict(group, None)], "kind": "device"})
+
+    user = db.session.get(User, session.user_id)
+    rows = db.session.execute(
+        db.select(Group, Member.role).join(Member, Member.group_id == Group.id)
+        .where(Member.user_id == user.id, Member.active.is_(True)).order_by(Group.id)
+    ).all()
+    return jsonify({
+        "user": {"id": user.id, "email": user.email, "display_name": user.display_name},
+        "groups": [_group_dict(group, role) for group, role in rows],
+        "kind": "user",
+    })

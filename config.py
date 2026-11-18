@@ -23,4 +23,10 @@ def load_config(env=os.environ) -> dict:
         "BASE_URL": env["BASE_URL"].rstrip("/"),
         "SQLALCHEMY_DATABASE_URI": normalize_database_url(env.get("DATABASE_URL") or DEFAULT_DATABASE_URL),
         "PROXY_HOPS": int(env.get("PROXY_HOPS", "1")),
+        "ALLOW_SIGNUP": env.get("ALLOW_SIGNUP", "false").strip().lower() in ("1", "true", "yes"),
+        "SMTP_HOST": env.get("SMTP_HOST") or None,
+        "SMTP_PORT": int(env.get("SMTP_PORT") or 587),
+        "SMTP_USER": env.get("SMTP_USER") or None,
+        "SMTP_PASSWORD": env.get("SMTP_PASSWORD") or None,
+        "SMTP_FROM": env.get("SMTP_FROM") or None,
     }
