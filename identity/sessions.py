@@ -11,6 +11,8 @@ from datetime import timedelta
 from typing import Callable
 
 from flask import Flask, Response, current_app, jsonify, request
+from sqlalchemy import update
+from sqlalchemy.orm.attributes import set_committed_value
 
 from extensions import db
 from identity.models import Session, User
@@ -61,7 +63,15 @@ def start_user_session(user: User) -> Callable[[Response], Response]:
 
 
 def current_session() -> Session | None:
-    """The live session named by the cookie, or None. Cached per request."""
+    """The live session named by the cookie, or None. Cached per request.
+
+    Contract: this never flushes or commits the caller's ``db.session``. The
+    rolling bump is a standalone UPDATE on its own connection, committed at
+    once; the loaded row is updated in place without being marked dirty.
+    Call it before staging writes (access checks do, at request start): on
+    SQLite a separate connection cannot write while this request's
+    connection holds a write lock.
+    """
     state = _request_state()
     cached = state.get("session", _NO_SESSION)
     if cached is not _NO_SESSION:
@@ -71,18 +81,21 @@ def current_session() -> Session | None:
     if not raw:
         return None
     now = utc_now()
-    row = db.session.execute(
-        db.select(Session).where(Session.token_hash == hash_token(raw),
-                                 Session.revoked_at.is_(None),
-                                 Session.expires_at > now)
-    ).scalar_one_or_none()
+    with db.session.no_autoflush:
+        row = db.session.execute(
+            db.select(Session).where(Session.token_hash == hash_token(raw),
+                                     Session.revoked_at.is_(None),
+                                     Session.expires_at > now)
+        ).scalar_one_or_none()
     if row is None:
         return None
     ttl = ROLLING_TTL.get(row.kind)
     if ttl is not None and now - row.last_seen_at >= BUMP_INTERVAL:
-        row.last_seen_at = now
-        row.expires_at = now + ttl
-        db.session.commit()
+        with db.engine.begin() as conn:
+            conn.execute(update(Session).where(Session.id == row.id)
+                         .values(last_seen_at=now, expires_at=now + ttl))
+        set_committed_value(row, "last_seen_at", now)
+        set_committed_value(row, "expires_at", now + ttl)
         state["refresh"] = (raw, ttl)
     state["session"] = row
     return row

@@ -311,3 +311,118 @@ def test_setup_token_expires_after_15_min(app, database_url, caplog):
                                 json={"token": token, "email": "a@cafe.com",
                                       "display_name": "A"})
     assert late.status_code == 400
+
+
+# --- Review fixes (R7) ---
+
+def test_request_link_survives_concurrent_user_insert(client, db_session, sent, monkeypatch):
+    """A concurrent request created the user between our lookup and insert."""
+    from identity import auth_routes
+    group = Group(name="Cafe")
+    db_session.add(group)
+    db_session.flush()
+    db_session.add(Member(group_id=group.id, display_name="Owner", email="owner@cafe.com",
+                          role="member"))
+    add_user()  # the "other request's" row, already committed
+    real_find = auth_routes.find_user
+    calls = []
+
+    def stale_first_lookup(email):
+        calls.append(email)
+        return None if len(calls) == 1 else real_find(email)
+    monkeypatch.setattr(auth_routes, "find_user", stale_first_lookup)
+
+    resp = request_link(client, "owner@cafe.com")
+    assert resp.status_code == 200
+    assert resp.get_json() == {"status": "sent"}
+    assert [to for to, _ in sent] == ["owner@cafe.com"]
+    assert db_session.query(User).count() == 1
+
+
+def test_current_session_bump_does_not_commit_callers_work(app, db_session):
+    from identity.sessions import current_session
+    from identity.tokens import new_token
+    user = add_user()
+    raw, digest = new_token()
+    long_ago = utc_now() - timedelta(hours=2)
+    db_session.add(Session(user_id=user.id, kind="user", token_hash=digest,
+                           created_at=long_ago, last_seen_at=long_ago,
+                           expires_at=long_ago + timedelta(days=30)))
+    db_session.commit()
+
+    with app.test_request_context("/", headers={"Cookie": f"tasting_session={raw}"}):
+        db_session.add(Group(name="Staged, never committed"))
+        row = current_session()
+        assert row is not None and row.last_seen_at > long_ago
+        db_session.rollback()
+
+    assert db_session.query(Group).count() == 0
+    bumped = db_session.query(Session).one()
+    db_session.refresh(bumped)
+    assert bumped.last_seen_at > long_ago  # the bump itself did persist
+
+
+def test_consume_revokes_previous_browser_session(client, db_session, sent):
+    add_user()
+    sign_in(client, sent)
+    sign_in(client, sent)
+    rows = db_session.query(Session).order_by(Session.id).all()
+    assert [r.revoked_at is not None for r in rows] == [True, False]
+    assert client.get("/api/auth/me").status_code == 200
+
+
+def test_setup_revokes_previous_browser_session(app, database_url, caplog, sent):
+    caplog.set_level("WARNING")
+    setup_app = make_logging_app(database_url)
+    message = setup_links(caplog)[0]
+    token = token_from(message[message.index("http://"):].split()[0])
+    test_client = setup_app.test_client()
+    with setup_app.app_context():
+        add_user("someone@cafe.com", "Someone")
+    # Sign in as an existing (non-admin) user on this browser first.
+    from identity.tokens import new_token
+    raw, digest = new_token()
+    with setup_app.app_context():
+        user = db.session.query(User).one()
+        db.session.add(LoginToken(user_id=user.id, token_hash=digest, purpose="signin",
+                                  expires_at=utc_now() + timedelta(minutes=15)))
+        db.session.commit()
+    test_client.get(f"/api/auth/consume?token={raw}")
+    resp = test_client.post("/api/auth/setup", headers=csrf(test_client),
+                            json={"token": token, "email": "owner@cafe.com",
+                                  "display_name": "Owner"})
+    assert resp.status_code == 200
+    with setup_app.app_context():
+        rows = db.session.query(Session).order_by(Session.id).all()
+        assert [r.revoked_at is not None for r in rows] == [True, False]
+
+
+def test_consume_does_not_link_inactive_member(client, db_session, sent):
+    add_user()
+    group = Group(name="Cafe")
+    db_session.add(group)
+    db_session.flush()
+    db_session.add(Member(group_id=group.id, display_name="Owner", email="owner@cafe.com",
+                          role="member", active=False))
+    db_session.commit()
+    sign_in(client, sent)
+    member = db_session.query(Member).one()
+    db_session.refresh(member)
+    assert member.user_id is None
+
+
+def test_access_log_redacts_signin_token(app, caplog):
+    import logging
+    from identity.log_redact import RedactTokenFilter
+    record = logging.LogRecord("werkzeug", logging.INFO, __file__, 1, '"%s" %s %s',
+                               ("GET /api/auth/consume?token=s3cr3t-Tok_en&x=1 HTTP/1.1",
+                                "302", "-"), None)
+    assert RedactTokenFilter().filter(record) is True
+    assert "s3cr3t" not in record.getMessage()
+    assert "/api/auth/consume?token=[redacted]&x=1" in record.getMessage()
+
+    caplog.set_level("INFO", logger="werkzeug")
+    logging.getLogger("werkzeug").info('"%s" %s %s',
+                                       "GET /api/auth/consume?token=abc123 HTTP/1.1", "302", "-")
+    assert "abc123" not in caplog.text
+    assert "token=[redacted]" in caplog.text

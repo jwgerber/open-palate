@@ -6,7 +6,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import load_config, normalize_database_url
 from extensions import db, limiter
-from identity import accounts, cli, sessions
+from identity import accounts, cli, log_redact, sessions
 from identity.auth_routes import auth_bp
 
 
@@ -32,6 +32,7 @@ def create_app(config: dict | None = None) -> Flask:
     if not app.config.get("TESTING"):
         # INFO reaches the log: the no-SMTP sign-in link is delivered there.
         logging.basicConfig(level=logging.INFO)
+    log_redact.install("werkzeug")
 
     db.init_app(app)
     limiter.init_app(app)

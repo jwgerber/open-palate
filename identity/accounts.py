@@ -64,13 +64,14 @@ def issue_signin_link(user: User) -> str:
 
 
 def link_roster_members(user: User) -> None:
-    """Attach unlinked roster rows carrying this user's email, skipping a
+    """Attach unlinked, active roster rows carrying this user's email, skipping a
     group where the user already has a member row (one per group)."""
     linked_groups = set(db.session.execute(
         db.select(Member.group_id).where(Member.user_id == user.id)).scalars())
     rows = db.session.execute(
         db.select(Member).where(func.lower(Member.email) == user.email,
-                                Member.user_id.is_(None)).order_by(Member.id)
+                                Member.user_id.is_(None), Member.active.is_(True))
+        .order_by(Member.id)
     ).scalars()
     for member in rows:
         if member.group_id not in linked_groups:

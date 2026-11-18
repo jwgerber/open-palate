@@ -3,6 +3,7 @@ import logging
 
 from flask import Blueprint, current_app, jsonify, redirect, request
 from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 
 from extensions import db, limiter
 from identity import mail
@@ -23,6 +24,27 @@ def _email_error():
     return jsonify({"error": "Enter a valid email address", "field": "email"}), 400
 
 
+def _create_user_or_refind(email: str, display_name: str) -> User:
+    """Insert the user in a savepoint; if a concurrent request won the race on
+    users.email, use its row instead of failing (a 500 would leak the email)."""
+    try:
+        with db.session.begin_nested():
+            user = User(email=email, display_name=display_name)
+            db.session.add(user)
+    except IntegrityError:
+        user = find_user(email)
+        if user is None:
+            raise
+    return user
+
+
+def _revoke_current_session() -> None:
+    """Signing in again replaces the browser's session rather than orphaning it."""
+    old = current_session()
+    if old is not None:
+        old.revoked_at = utc_now()
+
+
 @auth_bp.post("/request-link")
 @limiter.limit("5/minute")
 @handle_db_errors("Could not send a sign-in link")
@@ -39,10 +61,8 @@ def request_link():
     if user is None:
         member = active_member_for_email(email)
         if member is not None or current_app.config.get("ALLOW_SIGNUP"):
-            user = User(email=email, display_name=(
-                member.display_name if member is not None else default_display_name(email)))
-            db.session.add(user)
-            db.session.flush()
+            user = _create_user_or_refind(email, member.display_name if member is not None
+                                          else default_display_name(email))
     if user is not None:
         link = issue_signin_link(user)
         db.session.commit()
@@ -59,6 +79,7 @@ def request_link():
 def consume():
     base = current_app.config["BASE_URL"]
     raw = request.args.get("token", "")
+    current_session()  # resolve (and maybe bump) before this request stages writes
     now = utc_now()
     token = db.session.execute(
         db.select(LoginToken).where(LoginToken.token_hash == hash_token(raw),
@@ -76,6 +97,7 @@ def consume():
         return redirect(f"{base}/signin?error=expired")
 
     user = db.session.get(User, token.user_id)
+    _revoke_current_session()
     user.last_login_at = now
     link_roster_members(user)
     set_cookie = start_user_session(user)
@@ -102,6 +124,7 @@ def setup():
         return jsonify({"error": "Enter a name (up to 120 characters)",
                         "field": "display_name"}), 400
 
+    _revoke_current_session()
     user = ensure_admin(email, display_name)
     user.last_login_at = utc_now()
     link_roster_members(user)
