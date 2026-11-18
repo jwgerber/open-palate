@@ -1,5 +1,6 @@
 """Migration chain tests: each builds its own database from empty."""
 import os
+import uuid
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,8 @@ import sqlalchemy as sa
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.exc import IntegrityError
+
+from config import normalize_database_url
 
 ROOT = Path(__file__).resolve().parent.parent
 TABLES = {"users", "groups", "members", "login_tokens", "sessions", "device_codes"}
@@ -19,25 +22,30 @@ def alembic_config(url: str) -> Config:
     return config
 
 
-def _urls(tmp_path):
-    yield "sqlite", f"sqlite:///{tmp_path / 'fresh.db'}"
-    if os.environ.get("TEST_DATABASE_URL", "").startswith("postgresql"):
-        yield "postgres", os.environ["TEST_DATABASE_URL"]
-
-
 @pytest.fixture(params=["sqlite", "postgres"])
 def fresh_url(request, tmp_path):
-    urls = dict(_urls(tmp_path))
-    if request.param not in urls:
+    """An empty database private to one test; the shared test DB is never touched."""
+    if request.param == "sqlite":
+        yield f"sqlite:///{tmp_path / 'fresh.db'}"
+        return
+    base = os.environ.get("TEST_DATABASE_URL", "")
+    if not base.startswith("postgres"):
         pytest.skip("TEST_DATABASE_URL (postgresql) not set")
-    url = urls[request.param]
-    yield url
-    if request.param == "postgres":
-        command.downgrade(alembic_config(url), "base")
+    base_url = sa.engine.make_url(normalize_database_url(base))
+    name = f"migtest_{uuid.uuid4().hex[:12]}"
+    admin = sa.create_engine(base_url, isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(sa.text(f'CREATE DATABASE "{name}"'))
+    try:
+        yield base_url.set(database=name).render_as_string(hide_password=False)
+    finally:
+        with admin.connect() as conn:
+            conn.execute(sa.text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+        admin.dispose()
 
 
 def table_names(url: str) -> set[str]:
-    engine = sa.create_engine(url)
+    engine = sa.create_engine(normalize_database_url(url))
     try:
         return set(sa.inspect(engine).get_table_names())
     finally:
@@ -61,7 +69,7 @@ def test_downgrade_base_then_upgrade(fresh_url):
 
 def test_session_kind_shape_check(fresh_url):
     command.upgrade(alembic_config(fresh_url), "head")
-    engine = sa.create_engine(fresh_url)
+    engine = sa.create_engine(normalize_database_url(fresh_url))
     try:
         with engine.begin() as conn:
             conn.execute(sa.text(

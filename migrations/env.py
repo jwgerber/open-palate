@@ -9,6 +9,7 @@ from alembic import context
 from sqlalchemy import create_engine
 
 import identity.models  # noqa: F401  (registers tables on db.metadata)
+from config import normalize_database_url
 from extensions import db
 
 config = context.config
@@ -21,7 +22,7 @@ target_metadata = db.metadata
 def database_url() -> str:
     url = config.get_main_option("sqlalchemy.url")
     if url:
-        return url
+        return normalize_database_url(url)
     from app import create_app
 
     return create_app().config["SQLALCHEMY_DATABASE_URI"]

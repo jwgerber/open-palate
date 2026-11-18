@@ -2,7 +2,7 @@
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from config import load_config
+from config import load_config, normalize_database_url
 from extensions import db
 
 
@@ -16,6 +16,8 @@ def create_app(config: dict | None = None) -> Flask:
                 raise RuntimeError(f"{name} must be set")
         settings.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:////data/tasting.db")
         settings.setdefault("PROXY_HOPS", 1)
+    settings["SQLALCHEMY_DATABASE_URI"] = normalize_database_url(
+        settings["SQLALCHEMY_DATABASE_URI"])
     app.config.update(settings)
 
     hops = app.config["PROXY_HOPS"]
