@@ -10,6 +10,7 @@ import SetupPage from './auth/SetupPage';
 import { useContent } from './tasting/useContent';
 import api, { getLastKind } from './api';
 import { forgetLocalState } from './tasting/forgetLocalState';
+import ColorModeButton from './ColorModeButton';
 
 const TastingPage = lazy(() => import('./tasting/TastingPage'));
 const GroupSettingsPage = lazy(() => import('./admin/GroupSettingsPage'));
@@ -42,6 +43,7 @@ function Shell({ children }) {
       <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', mb: 2 }}>
         <Toolbar variant="dense" sx={{ gap: 1 }}>
           <Typography component={RouterLink} to="/" sx={{ fontWeight: 700, flex: 1, color: 'inherit', textDecoration: 'none' }}>Open Palate</Typography>
+          <ColorModeButton />
           {kind === 'user' && role === 'admin' && <Button component={RouterLink} to="/admin" size="small">Group settings</Button>}
           <Button size="small" onClick={isDevice ? () => setConfirmingDisconnect(true) : signOut}>{isDevice ? 'Disconnect' : 'Sign out'}</Button>
         </Toolbar>
