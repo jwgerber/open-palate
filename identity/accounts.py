@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from flask import current_app
 from itsdangerous import BadSignature, URLSafeTimedSerializer
-from sqlalchemy import func
+from sqlalchemy import func, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from extensions import db
@@ -16,6 +16,7 @@ from utils import utc_now
 logger = logging.getLogger(__name__)
 
 LINK_TTL = timedelta(minutes=15)
+ADMIN_LINK_TTL = timedelta(hours=24)
 DEFAULT_GROUP_NAME = "My café"
 _SETUP_SALT = "tasting-setup"
 
@@ -62,11 +63,21 @@ def user_has_active_member(user: User) -> bool:
     ).first() is not None
 
 
-def issue_signin_link(user: User) -> str:
-    """Add a single-use sign-in token (the caller commits); return its link."""
+def issue_signin_link(user: User, ttl: timedelta = LINK_TTL, supersede: bool = False) -> str:
+    """Add a single-use sign-in token (the caller commits); return its link.
+
+    With `supersede`, the user's other unused sign-in tokens are marked used so
+    only this newest link works."""
+    now = utc_now()
+    if supersede:
+        db.session.execute(
+            update(LoginToken)
+            .where(LoginToken.user_id == user.id, LoginToken.purpose == "signin",
+                   LoginToken.used_at.is_(None))
+            .values(used_at=now))
     raw, digest = new_token()
     db.session.add(LoginToken(user_id=user.id, token_hash=digest, purpose="signin",
-                              expires_at=utc_now() + LINK_TTL))
+                              expires_at=now + ttl))
     return f"{current_app.config['BASE_URL']}/api/auth/consume?token={raw}"
 
 

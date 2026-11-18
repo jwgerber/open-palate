@@ -1,4 +1,5 @@
 """/api/group: group settings, roster and device codes. Group admins only."""
+import logging
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Blueprint, jsonify
@@ -7,10 +8,14 @@ from sqlalchemy.exc import IntegrityError
 
 from extensions import db
 from identity.access import current_actor, require
-from identity.accounts import (DEVICE_CODE_TTL, new_device_code, normalize_email)
-from identity.models import DeviceCode, Group, Member, Session
+from identity.accounts import (ADMIN_LINK_TTL, DEVICE_CODE_TTL, get_or_create_user,
+                               issue_signin_link, link_roster_members, new_device_code,
+                               normalize_email)
+from identity.models import DeviceCode, Group, LoginToken, Member, Session
 from identity.tokens import hash_token
 from utils import get_json_object, handle_db_errors, utc_now
+
+logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/group")
 
@@ -177,6 +182,37 @@ def patch_member(member_id: int):
         db.session.rollback()
         return jsonify({"error": "email_in_use", "field": "email"}), 409
     return jsonify(_member_dict(member))
+
+
+@admin_bp.post("/members/<int:member_id>/signin-link")
+@require("admin")
+@handle_db_errors("Could not create a sign-in link")
+def copy_signin_link(member_id: int):
+    admin = current_actor()
+    member = db.session.execute(
+        db.select(Member).where(Member.id == member_id, Member.group_id == admin.group_id)
+    ).scalar_one_or_none()
+    if member is None:
+        return jsonify({"error": "not_found"}), 404
+    if not member.active:
+        return jsonify({"error": "member_inactive"}), 409
+    email = normalize_email(member.email)
+    if email is None:
+        return jsonify({"error": "no_email"}), 409
+    # The admin vouches for this member, so the account is made even when
+    # ALLOW_SIGNUP is off.
+    user = get_or_create_user(email, member.display_name)
+    link_roster_members(user)
+    link = issue_signin_link(user, ttl=ADMIN_LINK_TTL, supersede=True)
+    expires_at = db.session.execute(
+        db.select(LoginToken.expires_at).where(LoginToken.user_id == user.id)
+        .order_by(LoginToken.id.desc()).limit(1)).scalar_one()
+    db.session.commit()
+    # Never log the link or token.
+    logger.info("Sign-in link copied", extra={"admin_member_id": admin.member_id,
+                                              "target_member_id": member.id,
+                                              "expires_at": expires_at.isoformat()})
+    return jsonify({"link": link, "expires_at": expires_at.isoformat()})
 
 
 @admin_bp.post("/device-codes")
