@@ -1,13 +1,16 @@
-import { StrictMode } from 'react';
+import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { CssBaseline, ThemeProvider } from '@mui/material';
-import theme from './theme';
+import { CssBaseline, ThemeProvider, useMediaQuery } from '@mui/material';
+import { buildTheme } from './theme';
 import { AuthProvider } from './auth/AuthContext';
 import App from './App';
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
+/** Follows the device's light/dark setting: Persimmon by day, Night shift in the dark. */
+function ThemedApp() {
+  const dark = useMediaQuery('(prefers-color-scheme: dark)');
+  const theme = useMemo(() => buildTheme(dark ? 'dark' : 'light'), [dark]);
+  return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
@@ -16,5 +19,11 @@ createRoot(document.getElementById('root')).render(
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>
+  );
+}
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <ThemedApp />
   </StrictMode>,
 );
