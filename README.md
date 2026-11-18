@@ -13,7 +13,7 @@ docker run -d --name tasting -p 8000:8000 \
   -e SECRET_KEY="$(openssl rand -hex 32)" \
   -e BASE_URL=https://tasting.example.com \
   -v tasting-data:/data \
-  ghcr.io/OWNER/open-palate:latest
+  ghcr.io/jwgerber/open-palate:latest
 ```
 
 The app runs as uid 10001. On start the container fixes the ownership of `/data` itself, so a bind mount (`-v /srv/tasting:/data`) or a host disk that is owned by root works too. SQLite runs with write-ahead logging and one worker by default (set `WEB_CONCURRENCY` or `GUNICORN_THREADS` to change that).
@@ -96,7 +96,7 @@ Postgres: use your database host's backups; `flask backup` refuses with exit sta
 1. Take a backup first (above).
 2. Pull the new image and restart the container. Migrations run on start.
 
-Pin a version tag (`ghcr.io/OWNER/open-palate:v1.2.3`) instead of `latest` if you want to choose when you update.
+Pin a version tag (`ghcr.io/jwgerber/open-palate:v1.2.3`) instead of `latest` if you want to choose when you update.
 
 ## Deploy to Render
 

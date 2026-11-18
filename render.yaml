@@ -6,7 +6,7 @@ services:
     name: open-palate
     runtime: image
     image:
-      url: ghcr.io/OWNER/open-palate:latest
+      url: ghcr.io/jwgerber/open-palate:latest
     plan: starter        # a disk needs a paid instance (about $7/month plus $0.25/GB disk)
     healthCheckPath: /healthz
     disk:
