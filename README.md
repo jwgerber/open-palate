@@ -45,7 +45,7 @@ docker logs tasting | grep "No admin yet"
 Open it, set your name, then set the group name and time zone, add staff, and make a device code. On a host where you only have a log viewer, that is all you need. If you have a shell, this does the same:
 
 ```sh
-docker exec tasting flask create-admin you@example.com
+docker exec --user 10001 tasting flask create-admin you@example.com
 ```
 
 If every admin is lost, run `flask create-admin` again to recover.
@@ -70,8 +70,10 @@ Gunicorn's access log here records the path only, never the query string, becaus
 SQLite: `flask backup` writes a consistent copy (safe while the app runs) to `/data/backups/tasting-YYYY-MM-DD.db` and keeps the newest 14. Run it nightly from the host:
 
 ```
-0 3 * * * docker exec tasting flask backup
+0 3 * * * docker exec --user 10001 tasting flask backup
 ```
+
+Always pass `--user 10001` to `docker exec`: as root it would create files the app cannot write. A restart also repairs ownership of the database files and `/data/backups`.
 
 The backups sit on the same disk as the data, so copy `/data/backups` off the machine as well.
 
