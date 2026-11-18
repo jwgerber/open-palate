@@ -170,9 +170,13 @@ def log_setup_link_if_needed(app) -> None:
             db.session.remove()
         if needed:
             link = f"{app.config['BASE_URL']}/setup?token={new_setup_token()}"
-            logger.warning("No admin yet. Open the app from this machine, or create the "
-                           "first admin within 15 minutes: %s", link)
-            if app.config.get("SETUP_OPEN"):
+            if app.config.get("IN_CONTAINER"):
+                logger.warning("No admin yet. Create the first admin within 15 minutes: %s "
+                               "(or set SETUP_PASSWORD)", link)
+            else:
+                logger.warning("No admin yet. Open the app from this machine, or create the "
+                               "first admin within 15 minutes: %s", link)
+            if app.config.get("SETUP_OPEN") is True:
                 logger.warning("SETUP_OPEN is on: anyone who can reach this app can "
                                "create the first admin.")
 

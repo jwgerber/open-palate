@@ -116,6 +116,12 @@ def test_sample_flag_defaults_false_on_existing_rows(fresh_url):
         for table in SAMPLE_TABLES:
             col = next(c for c in sa.inspect(engine).get_columns(table) if c["name"] == "is_sample")
             assert not col["nullable"], table
+        # batch_alter_table rebuilds SQLite tables; the functional unique index must survive.
+        # Queried from the catalog: reflection skips expression-based indexes.
+        catalog = ("SELECT name FROM sqlite_master WHERE type = 'index'" if engine.dialect.name == "sqlite"
+                   else "SELECT indexname FROM pg_indexes WHERE tablename = 'members'")
+        with engine.connect() as conn:
+            assert "uq_members_group_lower_email" in {row[0] for row in conn.execute(sa.text(catalog))}
         command.downgrade(config, "0004")
         for table in SAMPLE_TABLES:
             assert "is_sample" not in {c["name"] for c in sa.inspect(engine).get_columns(table)}

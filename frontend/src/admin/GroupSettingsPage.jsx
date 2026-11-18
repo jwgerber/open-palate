@@ -1,5 +1,5 @@
 /** Admin: group name, members and roles, and one-time codes for shared devices. */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, FormControlLabel, MenuItem, Paper, Switch, TextField, Typography,
 } from '@mui/material';
@@ -76,11 +76,19 @@ function SampleMemberRow({ member }) {
   );
 }
 
+function pointsAtLocalhost(link) {
+  try { return ['localhost', '127.0.0.1'].includes(new URL(link).hostname); }
+  catch { return false; }
+}
+
 function MemberRow({ member, onChange, onError }) {
   const [editing, setEditing] = useState(false);
   // The link lives in this state only: never stored, never logged. It is set only when the clipboard refuses.
   const [fallbackLink, setFallbackLink] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [localhostLink, setLocalhostLink] = useState(false);
+  const emailHintId = useId();
   const [name, setName] = useState(member.display_name);
   const [email, setEmail] = useState(member.email ?? '');
   const patch = async (changes) => {
@@ -96,16 +104,24 @@ function MemberRow({ member, onChange, onError }) {
     }
   };
   const copyLink = async () => {
-    setCopied(false); setFallbackLink(null);
-    let link;
+    // Each request supersedes the last link, so a second click while one is pending would kill the first.
+    if (linkBusy) return;
+    setLinkBusy(true);
+    setCopied(false); setFallbackLink(null); setLocalhostLink(false);
     try {
-      link = (await api.post(`/group/members/${member.id}/signin-link`)).data.link;
-    } catch (e) {
-      onError(LINK_ERRORS[e.response?.data?.error] ?? apiErrorMessage(e, "Couldn't make a sign-in link."));
-      return;
+      let link;
+      try {
+        link = (await api.post(`/group/members/${member.id}/signin-link`)).data.link;
+      } catch (e) {
+        onError(LINK_ERRORS[e.response?.data?.error] ?? apiErrorMessage(e, "Couldn't make a sign-in link."));
+        return;
+      }
+      setLocalhostLink(pointsAtLocalhost(link));
+      try { await navigator.clipboard.writeText(link); setCopied(true); }
+      catch { setFallbackLink(link); }
+    } finally {
+      setLinkBusy(false);
     }
-    try { await navigator.clipboard.writeText(link); setCopied(true); }
-    catch { setFallbackLink(link); }
   };
   const startEdit = () => { setFallbackLink(null); setCopied(false); setName(member.display_name); setEmail(member.email ?? ''); setEditing(true); };
   const saveEdit = async () => {
@@ -141,9 +157,16 @@ function MemberRow({ member, onChange, onError }) {
       <FormControlLabel control={<Switch checked={member.active} onChange={(e) => patch({ active: e.target.checked })} />} label="Active" />
       {member.active && (
         <Box sx={{ flexBasis: '100%' }}>
-          <Button size="small" onClick={copyLink} disabled={!member.email}>Copy sign-in link</Button>
-          {!member.email && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>Add an email first</Typography>}
-          {copied && <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>Copied. Works once, for 24 hours.</Typography>}
+          <Button size="small" onClick={copyLink} disabled={!member.email || linkBusy} aria-describedby={member.email ? undefined : emailHintId}>Copy sign-in link</Button>
+          {!member.email && <Typography id={emailHintId} component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>Add an email first</Typography>}
+          <span aria-live="polite">
+            {copied && <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>Copied. Works once, for 24 hours.</Typography>}
+          </span>
+          {localhostLink && (
+            <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
+              This link points at localhost. Set BASE_URL to your server's address so it works on other devices.
+            </Typography>
+          )}
           {fallbackLink && (
             <TextField
               size="small" fullWidth value={fallbackLink} onFocus={(e) => e.target.select()}

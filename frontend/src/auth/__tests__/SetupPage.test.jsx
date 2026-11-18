@@ -96,9 +96,26 @@ describe('SetupPage', () => {
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/auth/setup', { token: 'tok', email: 'r@example.test', display_name: 'R' }));
   });
 
+  it('a ?token= shows the form even when a signed-in visitor sees needed:false', async () => {
+    setup = { needed: false };
+    api.post.mockResolvedValue({ data: { status: 'ok' } });
+    mount('/setup?token=tok');
+    expect(screen.queryByText(/already done/i)).toBeNull();
+    await userEvent.type(screen.getByLabelText('Your name'), 'R');
+    await userEvent.type(screen.getByLabelText('Email'), 'r@example.test');
+    await userEvent.click(screen.getByRole('button', { name: 'Create the first admin' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+  });
+
+  it('keeps password managers from filling the setup password', () => {
+    setup = { needed: true, open: false, password: true };
+    mount('/setup');
+    expect(screen.getByLabelText('Setup password')).toHaveAttribute('autocomplete', 'one-time-code');
+  });
+
   it('says setup is already done, with a sign-in link, when no setup is needed', () => {
     setup = { needed: false };
-    mount('/setup?token=old');
+    mount('/setup');
     expect(screen.getByText(/setup is already done/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/signin');
     expect(screen.queryByLabelText('Your name')).toBeNull();

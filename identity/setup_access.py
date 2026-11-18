@@ -33,8 +33,10 @@ def is_local_request() -> bool:
 
 
 def setup_is_open() -> bool:
-    if current_app.config.get("SETUP_OPEN"):
-        return True
+    """SETUP_OPEN true/false wins; unset means local requests outside a container."""
+    switch = current_app.config.get("SETUP_OPEN")
+    if switch is not None:  # explicit: True opens to everyone, False never opens
+        return bool(switch)
     if current_app.config.get("IN_CONTAINER"):
         return False
     return is_local_request()

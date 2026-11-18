@@ -16,7 +16,7 @@ fix_owner() {
 }
 
 if [ "$(id -u)" = "0" ]; then
-    for path in /data /data/tasting.db /data/tasting.db-wal /data/tasting.db-shm /data/backups; do
+    for path in /data /data/tasting.db /data/tasting.db-wal /data/tasting.db-shm /data/secret_key /data/backups; do
         fix_owner "$path"
     done
     exec setpriv --reuid="$APP_UID" --regid="$APP_UID" --init-groups ./start.sh

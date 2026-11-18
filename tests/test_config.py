@@ -68,13 +68,16 @@ def test_base_url_defaults_to_localhost(tmp_path, caplog):
 def test_setup_switches(tmp_path):
     base = sqlite_env(tmp_path)
     config = load_config(base)
-    assert config["SETUP_OPEN"] is False
+    assert config["SETUP_OPEN"] is None
     assert config["SETUP_PASSWORD"] is None
     assert config["IN_CONTAINER"] is False
     config = load_config({**base, "SETUP_OPEN": "true", "SETUP_PASSWORD": "", "OPEN_PALATE_CONTAINER": "1"})
     assert config["SETUP_OPEN"] is True
     assert config["SETUP_PASSWORD"] is None
     assert config["IN_CONTAINER"] is True
+    for value in ("false", "0", "no"):
+        assert load_config({**base, "SETUP_OPEN": value})["SETUP_OPEN"] is False
+    assert load_config({**base, "SETUP_OPEN": ""})["SETUP_OPEN"] is None
 
 
 def test_secret_never_logged(tmp_path, caplog):

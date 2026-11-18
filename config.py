@@ -85,6 +85,13 @@ def _flag(value: str | None) -> bool:
     return (value or "").strip().lower() in ("1", "true", "yes")
 
 
+def _tri_state(value: str | None) -> bool | None:
+    """True / False when set to a recognised word, None when unset or blank."""
+    if not (value or "").strip():
+        return None
+    return _flag(value)
+
+
 def load_config(env=os.environ) -> dict:
     """Read settings from the environment; fail early only where there is no safe default."""
     database_uri = normalize_database_url(env.get("DATABASE_URL") or DEFAULT_DATABASE_URL)
@@ -98,7 +105,7 @@ def load_config(env=os.environ) -> dict:
         "SQLALCHEMY_DATABASE_URI": database_uri,
         "PROXY_HOPS": int(env.get("PROXY_HOPS", "1")),
         "ALLOW_SIGNUP": _flag(env.get("ALLOW_SIGNUP", "false")),
-        "SETUP_OPEN": _flag(env.get("SETUP_OPEN")),
+        "SETUP_OPEN": _tri_state(env.get("SETUP_OPEN")),
         "SETUP_PASSWORD": env.get("SETUP_PASSWORD") or None,
         "IN_CONTAINER": _flag(env.get("OPEN_PALATE_CONTAINER")),
         "SMTP_HOST": env.get("SMTP_HOST") or None,

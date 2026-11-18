@@ -65,6 +65,18 @@ def test_proxy_with_public_client_is_not_open(app, database_url):
     assert response.status_code == 400
 
 
+def test_setup_open_false_is_never_open_even_for_local_peer(app, database_url):
+    response = post_setup(make_app(database_url, SETUP_OPEN=False, IN_CONTAINER=False), "127.0.0.1")
+    assert response.status_code == 400
+    status = get_status(make_app(database_url, SETUP_OPEN=False), "127.0.0.1").get_json()
+    assert status["open"] is False
+
+
+def test_setup_open_unset_keeps_local_rule(app, database_url):
+    response = post_setup(make_app(database_url, SETUP_OPEN=None), "127.0.0.1")
+    assert response.status_code == 200
+
+
 def test_container_is_never_open_without_switch(app, database_url):
     response = post_setup(make_app(database_url, IN_CONTAINER=True), "127.0.0.1")
     assert response.status_code == 400

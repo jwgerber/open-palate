@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const refresh = vi.fn(() => Promise.resolve());
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ refresh }) }));
@@ -166,6 +166,49 @@ describe('GroupSettingsPage', () => {
   describe('copy sign-in link', () => {
     const LINK = 'http://localhost/api/auth/consume?token=abc';
     const rowOf = async (name) => (await screen.findByText(name)).closest('div').parentElement;
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    afterEach(() => {
+      if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
+      else delete navigator.clipboard;
+    });
+
+    it('sends one request when clicked twice while the first is pending', async () => {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(() => Promise.resolve()) }, configurable: true });
+      let resolve;
+      api.post.mockReturnValue(new Promise((r) => { resolve = r; }));
+      render(<GroupSettingsPage />);
+      const button = within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' });
+      await userEvent.click(button);
+      await waitFor(() => expect(button).toBeDisabled());
+      fireEvent.click(button);
+      expect(api.post).toHaveBeenCalledTimes(1);
+      resolve({ data: { link: LINK, expires_at: '2030-01-01T00:00:00+00:00' } });
+      await waitFor(() => expect(button).toBeEnabled());
+    });
+
+    it('announces the copied status politely and links the no-email hint to its button', async () => {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(() => Promise.resolve()) }, configurable: true });
+      api.post.mockResolvedValue({ data: { link: LINK, expires_at: '2030-01-01T00:00:00+00:00' } });
+      render(<GroupSettingsPage />);
+      const noEmail = within(await rowOf('Jo Floor'));
+      const hint = noEmail.getByText('Add an email first');
+      expect(noEmail.getByRole('button', { name: 'Copy sign-in link' })).toHaveAttribute('aria-describedby', hint.id);
+      await userEvent.click(within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' }));
+      const status = await screen.findByText('Copied. Works once, for 24 hours.');
+      expect(status.closest('[aria-live]')).toHaveAttribute('aria-live', 'polite');
+    });
+
+    it('warns when the link points at localhost, and not when it does not', async () => {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(() => Promise.resolve()) }, configurable: true });
+      api.post.mockResolvedValueOnce({ data: { link: LINK, expires_at: '2030-01-01T00:00:00+00:00' } });
+      render(<GroupSettingsPage />);
+      await userEvent.click(within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' }));
+      expect(await screen.findByText(/This link points at localhost\. Set BASE_URL/)).toBeInTheDocument();
+      api.post.mockResolvedValueOnce({ data: { link: 'https://tasting.example.test/api/auth/consume?token=abc', expires_at: '2030-01-01T00:00:00+00:00' } });
+      await userEvent.click(within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' }));
+      await screen.findByText('Copied. Works once, for 24 hours.');
+      expect(screen.queryByText(/points at localhost/)).toBeNull();
+    });
 
     it('posts, copies the link, and says it works once for 24 hours', async () => {
       const writeText = vi.fn(() => Promise.resolve());

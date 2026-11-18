@@ -32,7 +32,8 @@ export default function SetupPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  if (setup?.needed === false) {
+  // The backend decides: with a ?token= the form shows even if this visitor looks done (a 409 explains).
+  if (setup?.needed === false && !token) {
     return (
       <Shell>
         <Typography sx={{ mb: 2 }}>Setup is already done.</Typography>
@@ -88,7 +89,7 @@ export default function SetupPage() {
         <TextField label="Your name" value={name} onChange={(e) => setName(e.target.value)} />
         <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         {showPassword && (
-          <TextField label="Setup password" type="password" autoComplete="off" value={setupPassword} onChange={(e) => setSetupPassword(e.target.value)} />
+          <TextField label="Setup password" type="password" autoComplete="one-time-code" value={setupPassword} onChange={(e) => setSetupPassword(e.target.value)} />
         )}
         <Button type="submit" variant="contained" size="large" disabled={busy || !name.trim() || !email.trim() || (showPassword && !setupPassword)}>Create the first admin</Button>
       </Box>

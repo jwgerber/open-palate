@@ -300,6 +300,19 @@ def setup_links(caplog):
             if r.levelname == "WARNING" and "/setup?token=" in r.getMessage()]
 
 
+def test_setup_link_wording_depends_on_container(app, database_url, caplog):
+    caplog.set_level("WARNING")
+    make_logging_app(database_url)
+    in_container = setup_links(caplog)[0]
+    assert "this machine" not in in_container
+    assert "SETUP_PASSWORD" in in_container
+    caplog.clear()
+    create_app({"TESTING": True, "LOG_SETUP_LINK": True, "IN_CONTAINER": False,
+                "SECRET_KEY": "test-secret", "BASE_URL": "http://localhost",
+                "SQLALCHEMY_DATABASE_URI": database_url})
+    assert "this machine" in setup_links(caplog)[0]
+
+
 def test_setup_link_logged_until_admin_exists(app, database_url, caplog):
     caplog.set_level("WARNING")
     assert setup_links(caplog) == []  # TESTING apps stay quiet by default

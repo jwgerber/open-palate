@@ -117,11 +117,12 @@ def test_link_not_logged(app, db_session, caplog):
     with caplog.at_level(logging.INFO):
         link = copy_link(client, headers, member).get_json()["link"]
     assert token_from(link) not in caplog.text
-    records = [r for r in caplog.records if r.getMessage() == "Sign-in link copied"]
+    records = [r for r in caplog.records if r.getMessage().startswith("Sign-in link copied")]
     assert len(records) == 1
-    assert records[0].admin_member_id == admin_member.id
-    assert records[0].target_member_id == member.id
-    assert records[0].expires_at.endswith("+00:00")
+    message = records[0].getMessage()
+    assert f"admin_member_id={admin_member.id}" in message
+    assert f"target_member_id={member.id}" in message
+    assert "expires_at=" in message and "+00:00" in message
 
 
 def test_user_in_another_group_is_refused(app, db_session):

@@ -36,7 +36,7 @@ Environment variables:
 |---|---|
 | `SECRET_KEY` | Optional with SQLite: when unset, one is generated on first start and kept in a file named `secret_key` next to the database file (mode 0600), so it lasts as long as the data. Required with Postgres (start-up fails without it). Keep it stable; changing it signs everyone out. |
 | `BASE_URL` | Default `http://localhost:8000`, with a warning. Set it to the public address on any real deployment. |
-| `SETUP_OPEN` | `true` lets anyone who can reach the app create the first admin. Use it only with a port bound to `127.0.0.1`. Default off. |
+| `SETUP_OPEN` | `true` lets anyone who can reach the app create the first admin; use it only with a port bound to `127.0.0.1`. `false` never opens setup by itself, even for local visitors. Unset (default): open only to local visitors when running outside Docker. |
 | `SETUP_PASSWORD` | Optional. A passphrase that lets a visitor create the first admin from the setup page. |
 | `DATABASE_URL` | Unset: SQLite at `/data/tasting.db`. Set: Postgres, e.g. `postgresql://user:pass@host/db`. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Optional, see below. |
@@ -50,7 +50,7 @@ Migrations run on every container start.
 
 While no admin exists, any ONE of these creates the first admin:
 
-1. **Open setup.** The setup page needs nothing. It applies when `SETUP_OPEN=true` (anyone who can reach the app), or, when running directly and not in Docker, when the visitor's real connection and forwarded address are both on your own network (private or loopback). In Docker, setup is never open by itself: on a server, Docker makes every visitor look local, so you must use one of the next two ways or set `SETUP_OPEN`.
+1. **Open setup.** The setup page needs nothing. It applies when `SETUP_OPEN=true` (anyone who can reach the app), or, when running directly and not in Docker, when the visitor's real connection and forwarded address are both on your own network (private or loopback). In Docker, setup is never open by itself: on a server, Docker makes every visitor look local, so you must use one of the next two ways or set `SETUP_OPEN`. Running directly behind a proxy or tunnel on the same machine, the proxy must send `X-Forwarded-For`; otherwise every visitor looks local. If you cannot guarantee that, set `SETUP_OPEN=false` and use the setup link or `SETUP_PASSWORD`.
 2. **`SETUP_PASSWORD`.** Set it, open the app, and type it on the setup page.
 3. **The setup link in the log.** On start, if no admin exists, the app logs a one-time link (valid 15 minutes, a fresh one at each start until an admin exists):
 
@@ -79,7 +79,7 @@ Open your `BASE_URL` on the tablet, enter the device code from the admin page, a
 
 ## Behind a proxy
 
-Every absolute link uses `BASE_URL`, never the request's host. The client address for rate limits comes from `X-Forwarded-For`, trusting `PROXY_HOPS` proxies (default `1`, right for Render, Fly.io, Caddy and Cloudflare). **Set `PROXY_HOPS=0` if the container is not behind a proxy**, otherwise clients can spoof their IP and dodge rate limits. Set `PROXY_HOPS` to the exact number of proxies. A higher number lets a visitor fake their address, which can open setup. Rate limits are counted per worker, in memory, so they reset on restart.
+Every absolute link uses `BASE_URL`, never the request's host. The client address for rate limits comes from `X-Forwarded-For`, trusting `PROXY_HOPS` proxies (default `1`, right for Render, Fly.io, Caddy and Cloudflare). **Set `PROXY_HOPS=0` if the container is not behind a proxy**, otherwise clients can spoof their IP and dodge rate limits. Running directly (not in Docker) behind a proxy or tunnel, the proxy MUST send `X-Forwarded-For`, otherwise every visitor looks local and the first internet visitor could claim the admin account; or set `SETUP_OPEN=false` and use the setup link or `SETUP_PASSWORD`. Set `PROXY_HOPS` to the exact number of proxies. A higher number lets a visitor fake their address, which can open setup. Rate limits are counted per worker, in memory, so they reset on restart.
 
 Gunicorn's access log here records the path only, never the query string, because sign-in links carry a token there; the werkzeug log is redacted too. Only the configuration shipped in this repo does that, so do not turn on query-string access logs in a proxy or elsewhere without redacting `token=`.
 

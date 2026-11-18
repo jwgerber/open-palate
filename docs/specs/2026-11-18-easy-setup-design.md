@@ -47,7 +47,7 @@ admin, invite people without a mail server, and see what the app does within a m
   saying to set `SECRET_KEY` or fix the folder. When unset and the database is Postgres,
   start-up fails with a message saying to set `SECRET_KEY` (a container's own filesystem is
   not durable there; Render's blueprint already generates it). The key is never logged.
-- **`SETUP_OPEN`** (new, optional, default off). See "Who may create the first admin".
+- **`SETUP_OPEN`** (new, optional, tri-state: `true`, `false`, or unset). See "Who may create the first admin".
 - **`OPEN_PALATE_CONTAINER`** is set to `1` by the Dockerfile. It is how the app knows it
   runs in a container; operators do not set it.
 - **`BASE_URL`** defaults to `http://localhost:8000` when unset, with one start-up warning
@@ -67,14 +67,18 @@ Once an admin exists, every setup request is refused (unchanged: 409 `setup_done
 
 **"Open"** means:
 
-- `SETUP_OPEN=true` → open to every visitor, in or out of a container. The app logs one
-  warning at start while no admin exists. The README pairs it only with a port published on
-  `127.0.0.1` (`docker run -p 127.0.0.1:8000:8000 -e SETUP_OPEN=true …`), so the app cannot
-  be reached from outside that computer.
-- otherwise, in a container (`OPEN_PALATE_CONTAINER=1`) → never open. Docker's port
+- `SETUP_OPEN` is tri-state (`config` returns `True` / `False` / `None`):
+  - `true` → open to every visitor, in or out of a container. The app logs one warning at
+    start while no admin exists. The README pairs it only with a port published on
+    `127.0.0.1` (`docker run -p 127.0.0.1:8000:8000 -e SETUP_OPEN=true …`), so the app cannot
+    be reached from outside that computer.
+  - `false` → never open, even for a local request outside a container. The way to opt out
+    of the local rule when a same-host proxy cannot be trusted to send `X-Forwarded-For`.
+  - unset (`None`) → the rules below.
+- unset, in a container (`OPEN_PALATE_CONTAINER=1`) → never open. Docker's port
   mapping makes outside visitors arrive from the bridge's private address, so "local"
   cannot be told apart from the internet there. Use the setup link or `SETUP_PASSWORD`.
-- otherwise (running directly, not in a container) → open when the request is **local**.
+- unset, running directly (not in a container) → open when the request is **local**.
 
 **"Local"** means BOTH of these are private addresses: the socket peer address (the real
 connection, before `ProxyFix`) AND the client address `ProxyFix` resolves from
@@ -87,6 +91,12 @@ Why both: with no proxy in front, `ProxyFix` would trust a client-sent `X-Forwar
 proxy's private address, and the forwarded client address catches the outside visitor.
 Known limit: a `PROXY_HOPS` set higher than the real number of proxies lets a client forge
 the forwarded address. The README's proxy section says so.
+
+Same-host proxy requirement: running directly (not in Docker) behind a proxy or tunnel on
+the same machine, the proxy MUST send `X-Forwarded-For`. Without it the peer is loopback and
+there is no forwarded address, so every visitor looks local and the first internet visitor
+could claim admin. Operators who cannot guarantee that set `SETUP_OPEN=false` and use the
+setup link or `SETUP_PASSWORD`. The README's "First admin" and "Behind a proxy" sections say so.
 
 ### `GET /api/auth/setup-status` (new, public)
 

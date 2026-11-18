@@ -226,9 +226,8 @@ def copy_signin_link(member_id: int):
     db.session.commit()
     expires_iso = expires_at.replace(tzinfo=timezone.utc).isoformat()
     # Never log the link or token.
-    logger.info("Sign-in link copied", extra={"admin_member_id": admin.member_id,
-                                              "target_member_id": member.id,
-                                              "expires_at": expires_iso})
+    logger.info("Sign-in link copied: admin_member_id=%s target_member_id=%s expires_at=%s",
+                admin.member_id, member.id, expires_iso)
     return jsonify({"link": link, "expires_at": expires_iso})
 
 
