@@ -121,3 +121,21 @@ def test_query_string_is_not_part_of_the_folder(tmp_path):
     env = {"DATABASE_URL": f"sqlite:///{tmp_path}/t.db?timeout=5", "BASE_URL": "http://localhost"}
     key = load_config(env)["SECRET_KEY"]
     assert (tmp_path / "secret_key").read_text() == key
+
+
+def test_relative_sqlite_path_and_key_sit_together_under_instance(tmp_path, monkeypatch):
+    import config
+    monkeypatch.setattr(config, "INSTANCE_DIR", tmp_path / "instance")
+    monkeypatch.chdir(tmp_path)
+    loaded = load_config({"DATABASE_URL": "sqlite:///dev.db?timeout=5", "BASE_URL": "http://localhost"})
+    assert loaded["SQLALCHEMY_DATABASE_URI"] == f"sqlite:///{tmp_path}/instance/dev.db?timeout=5"
+    assert (tmp_path / "instance" / "secret_key").read_text().strip() == loaded["SECRET_KEY"]
+    assert not (tmp_path / "secret_key").exists()
+
+
+def test_in_memory_sqlite_gets_a_per_process_key(tmp_path):
+    for uri in ("sqlite://", "sqlite:///:memory:"):
+        first = load_config({"DATABASE_URL": uri, "BASE_URL": "http://localhost"})
+        second = load_config({"DATABASE_URL": uri, "BASE_URL": "http://localhost"})
+        assert len(first["SECRET_KEY"]) >= 64
+        assert first["SECRET_KEY"] != second["SECRET_KEY"]

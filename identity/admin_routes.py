@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from extensions import db
 from identity.access import current_actor, require
 from identity.accounts import (ADMIN_LINK_TTL, DEVICE_CODE_TTL, find_user, get_or_create_user,
-                               issue_signin_link_expiring, link_roster_members, new_device_code,
+                               issue_signin_link, link_roster_members, new_device_code,
                                normalize_email)
 from identity.models import DeviceCode, Group, Member, Session
 from identity.tokens import hash_token
@@ -204,6 +204,9 @@ def copy_signin_link(member_id: int):
         return jsonify({"error": "sample_member"}), 409
     if not member.active:
         return jsonify({"error": "member_inactive"}), 409
+    if member.role in ("admin", "editor") and member.id != admin.member_id:
+        # A link signs in as that person: never mint one for another manager.
+        return jsonify({"error": "manager_member"}), 409
     email = normalize_email(member.email)
     if email is None:
         return jsonify({"error": "no_email"}), 409
@@ -222,7 +225,7 @@ def copy_signin_link(member_id: int):
     if member.user_id != user.id:
         db.session.rollback()
         return jsonify({"error": "not_linked"}), 409
-    link, expires_at = issue_signin_link_expiring(user, ttl=ADMIN_LINK_TTL, supersede=True)
+    link, expires_at = issue_signin_link(user, ttl=ADMIN_LINK_TTL, supersede=True)
     db.session.commit()
     expires_iso = expires_at.replace(tzinfo=timezone.utc).isoformat()
     # Never log the link or token.

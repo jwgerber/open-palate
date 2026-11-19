@@ -144,3 +144,24 @@ def test_setup_is_rate_limited(app, database_url):
     codes = [post_setup(setup_app, "203.0.113.9", forwarded="203.0.113.9",
                         setup_password=f"guess{i}").status_code for i in range(6)]
     assert codes == [400] * 5 + [429]
+
+
+def test_racing_setup_loses_with_409_and_leaves_one_group(app, database_url, monkeypatch):
+    from identity import auth_routes
+    from identity.models import Group, Member
+    setup_app = make_app(database_url, SETUP_OPEN=True)
+    real_ensure_admin = auth_routes.ensure_admin
+
+    def other_setup_wins_first(email, display_name):
+        # Another request completes setup between our check and our write.
+        _, _ = make_member(make_group("Race"), "first@example.com", "admin")
+        return real_ensure_admin(email, display_name)
+
+    monkeypatch.setattr(auth_routes, "ensure_admin", other_setup_wins_first)
+    response = post_setup(setup_app, "127.0.0.1")
+    assert response.status_code == 409
+    assert response.get_json() == {"error": "setup_done"}
+    with setup_app.app_context():
+        assert len(db.session.execute(db.select(Group)).scalars().all()) == 1
+        admins = db.session.execute(db.select(Member).where(Member.role == "admin")).scalars().all()
+        assert [m.email for m in admins] == ["first@example.com"]

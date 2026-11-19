@@ -9,7 +9,8 @@ from extensions import db, limiter
 from identity import mail
 from identity.accounts import (active_member_for_email, admin_exists, default_display_name,
                                ensure_admin, find_user, issue_signin_link, link_roster_members,
-                               normalize_email, setup_token_valid, user_has_active_member)
+                               lock_first_admin_setup, more_than_one_admin, normalize_email,
+                               setup_token_valid, user_has_active_member)
 from identity.models import Group, LoginToken, Member, User
 from identity.sessions import current_session, end_session, start_user_session
 from identity.setup_access import setup_is_open, setup_password_ok
@@ -69,7 +70,7 @@ def request_link():
             user = _create_user_or_refind(email, member.display_name if member is not None
                                           else default_display_name(email))
     if user is not None:
-        link = issue_signin_link(user)
+        link, _ = issue_signin_link(user)
         db.session.commit()
         try:
             mail.send_signin_email(user.email, link)
@@ -132,8 +133,16 @@ def setup():
         return jsonify({"error": "Enter a name (up to 120 characters)",
                         "field": "display_name"}), 400
 
+    lock_first_admin_setup()
+    if admin_exists():  # another setup finished while this one waited for the lock
+        db.session.rollback()
+        return jsonify({"error": "setup_done"}), 409
     _revoke_current_session()
     user = ensure_admin(email, display_name)
+    db.session.flush()
+    if more_than_one_admin():  # SQLite has no lock above: a racing setup got there first
+        db.session.rollback()
+        return jsonify({"error": "setup_done"}), 409
     user.last_login_at = utc_now()
     link_roster_members(user)
     set_cookie = start_user_session(user)

@@ -72,7 +72,7 @@ def test_link_creates_user_even_when_signup_off(app, db_session):
 def test_link_reuses_existing_user_and_kills_older_links(app, db_session):
     group, _, client, headers = setup_admin(app)
     user, member = make_member(group, "robin@cafe.com")
-    old = issue_signin_link(user)
+    old, _ = issue_signin_link(user)
     db.session.commit()
     new = copy_link(client, headers, member).get_json()["link"]
     assert consume(app, old).headers["Location"].endswith("/signin?error=expired")
@@ -84,7 +84,7 @@ def test_default_issue_does_not_supersede(app, db_session):
     user = User(email="a@cafe.com", display_name="a")
     db.session.add(user)
     db.session.flush()
-    first = issue_signin_link(user)
+    first, _ = issue_signin_link(user)
     issue_signin_link(user)
     db.session.commit()
     assert consume(app, first).headers["Location"].endswith("/")
@@ -154,3 +154,15 @@ def test_member_that_cannot_link_is_refused(app, db_session):
     response = copy_link(client, headers, row)
     assert response.status_code == 409 and response.get_json() == {"error": "not_linked"}
     assert db.session.execute(db.select(LoginToken)).scalars().all() == tokens_before
+
+
+def test_links_are_for_members_and_your_own_row_only(app, db_session):
+    group, admin_member, client, headers = setup_admin(app)
+    for role in ("admin", "editor"):
+        _, other = make_member(group, f"other-{role}@cafe.com", role)
+        response = copy_link(client, headers, other)
+        assert response.status_code == 409
+        assert response.get_json() == {"error": "manager_member"}
+    assert db.session.execute(db.select(LoginToken)).scalars().all() == []
+    assert copy_link(client, headers, admin_member).status_code == 200
+    assert copy_link(client, headers, add_roster_member(group)).status_code == 200

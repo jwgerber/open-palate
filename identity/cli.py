@@ -15,7 +15,7 @@ def create_admin(email: str, display_name: str | None) -> None:
     if normalized is None:
         raise click.BadParameter("not an email address", param_hint="EMAIL")
     user = ensure_admin(normalized, display_name or default_display_name(normalized))
-    link = issue_signin_link(user)
+    link, _ = issue_signin_link(user)
     db.session.commit()
     click.echo(f"Admin ready: {user.email}")
     click.echo(f"Sign in within 15 minutes (works once): {link}")

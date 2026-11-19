@@ -130,6 +130,9 @@ routes.
   show the link on screen beyond a fallback text field when the clipboard is refused.
 - Logged at INFO: `admin_member_id`, `target_member_id`, expiry. Never the link or token.
 - Cross-group member ids are 404, as elsewhere.
+- Links are for members only, plus the admin's own row: a link for another admin or
+  editor is refused with 409 `manager_member` (it would sign the caller in as them), and the
+  UI hides the button on those rows. Admins and editors sign in by email.
 
 ## 3. Sample data
 

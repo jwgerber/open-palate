@@ -21,6 +21,21 @@ def normalize_database_url(url: str) -> str:
     return url
 
 
+# Where Flask puts its instance folder for app.py; Flask-SQLAlchemy resolves a
+# relative SQLite path against it, so we do the same, once, up front.
+INSTANCE_DIR = Path(__file__).resolve().parent / "instance"
+
+
+def absolute_sqlite_uri(database_uri: str) -> str:
+    """A ``sqlite:///relative.db`` URI rewritten to its real place under the
+    instance folder, so the database and its secret key can never part ways."""
+    db_file = _sqlite_file(database_uri)
+    if db_file is None or db_file.is_absolute():
+        return database_uri
+    query = database_uri.partition("?")[1:]
+    return f"sqlite:///{INSTANCE_DIR / db_file}{''.join(query)}"
+
+
 def _sqlite_file(database_uri: str) -> Path | None:
     """The database file of a ``sqlite:///<path>`` URI, or None for any other kind
     (including in-memory SQLite, which has no folder)."""
@@ -65,13 +80,14 @@ def resolve_secret_key(env: Mapping, database_uri: str) -> str:
     Postgres has no data folder, so it must set one."""
     if env.get("SECRET_KEY"):
         return env["SECRET_KEY"]
-    if database_uri.startswith("sqlite:///") and _sqlite_file(database_uri) is None:
-        return secrets.token_urlsafe(48)
     db_file = _sqlite_file(database_uri)
+    if db_file is None and database_uri.startswith("sqlite:"):
+        return secrets.token_urlsafe(48)  # in-memory: nothing to keep a key beside
     if db_file is None:
         raise RuntimeError("Set SECRET_KEY: with Postgres there is no data folder to keep a generated key in.")
     path = db_file.parent / "secret_key"
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists():
             return _read_key(path)
         return _create_key_file(path)
@@ -94,7 +110,8 @@ def _tri_state(value: str | None) -> bool | None:
 
 def load_config(env=os.environ) -> dict:
     """Read settings from the environment; fail early only where there is no safe default."""
-    database_uri = normalize_database_url(env.get("DATABASE_URL") or DEFAULT_DATABASE_URL)
+    database_uri = absolute_sqlite_uri(
+        normalize_database_url(env.get("DATABASE_URL") or DEFAULT_DATABASE_URL))
     base_url = env.get("BASE_URL")
     if not base_url:
         logger.warning("BASE_URL is not set; using http://localhost:8000. Set it to the address people open.")

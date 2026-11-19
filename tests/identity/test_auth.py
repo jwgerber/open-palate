@@ -313,6 +313,16 @@ def test_setup_link_wording_depends_on_container(app, database_url, caplog):
     assert "this machine" in setup_links(caplog)[0]
 
 
+def test_setup_link_wording_when_open_setup_is_off(app, database_url, caplog):
+    caplog.set_level("WARNING")
+    create_app({"TESTING": True, "LOG_SETUP_LINK": True, "IN_CONTAINER": False, "SETUP_OPEN": False,
+                "SECRET_KEY": "test-secret", "BASE_URL": "http://localhost",
+                "SQLALCHEMY_DATABASE_URI": database_url})
+    message = setup_links(caplog)[0]
+    assert "this machine" not in message
+    assert "SETUP_PASSWORD" in message
+
+
 def test_setup_link_logged_until_admin_exists(app, database_url, caplog):
     caplog.set_level("WARNING")
     assert setup_links(caplog) == []  # TESTING apps stay quiet by default

@@ -74,7 +74,7 @@ Open your `BASE_URL` on the tablet, enter the device code from the admin page, a
 
 ## Email and scan (optional)
 
-- **Email.** Set the `SMTP_*` variables and staff can sign in on their own phones with an emailed link. Without SMTP, sign-in links are written to the log instead, or an admin can open Group settings and use **Copy sign-in link** on a member who has an email: it makes a single-use link valid for 24 hours, cancels that person's older links, and needs no mail server. Emails are sent synchronously, so a slow mail server slows the request that sent it. Some email security scanners open links before the person does and use up the single-use link; open the link from a device you trust, or request a new one.
+- **Email.** Set the `SMTP_*` variables and staff can sign in on their own phones with an emailed link. Without SMTP, sign-in links are written to the log instead, or an admin can open Group settings and use **Copy sign-in link** on a member who has an email (members only, plus your own row; admins and editors sign in by email): it makes a single-use link valid for 24 hours, cancels that person's older links, and needs no mail server. Emails are sent synchronously, so a slow mail server slows the request that sent it. Some email security scanners open links before the person does and use up the single-use link; open the link from a device you trust, or request a new one.
 - **Paper-sheet scan.** Set `ANTHROPIC_API_KEY` to turn on photo scanning of paper cupping sheets. It only pre-fills the entry form; nothing is saved until a person confirms. Without the key the scan is off.
 
 ## Behind a proxy

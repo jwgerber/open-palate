@@ -63,8 +63,8 @@ def user_has_active_member(user: User) -> bool:
     ).first() is not None
 
 
-def issue_signin_link_expiring(user: User, ttl: timedelta = LINK_TTL,
-                               supersede: bool = False) -> tuple[str, datetime]:
+def issue_signin_link(user: User, ttl: timedelta = LINK_TTL,
+                      supersede: bool = False) -> tuple[str, datetime]:
     """Add a single-use sign-in token (the caller commits); return (link, expires_at).
 
     With `supersede`, the user's other unused sign-in tokens are marked used so
@@ -81,11 +81,6 @@ def issue_signin_link_expiring(user: User, ttl: timedelta = LINK_TTL,
     db.session.add(LoginToken(user_id=user.id, token_hash=digest, purpose="signin",
                               expires_at=expires_at))
     return f"{current_app.config['BASE_URL']}/api/auth/consume?token={raw}", expires_at
-
-
-def issue_signin_link(user: User, ttl: timedelta = LINK_TTL, supersede: bool = False) -> str:
-    """Like issue_signin_link_expiring, returning only the link."""
-    return issue_signin_link_expiring(user, ttl, supersede)[0]
 
 
 def link_roster_members(user: User) -> None:
@@ -107,6 +102,21 @@ def link_roster_members(user: User) -> None:
 def admin_exists() -> bool:
     return db.session.execute(
         db.select(Member.id).where(Member.role == "admin").limit(1)).first() is not None
+
+
+_SETUP_LOCK_KEY = 0x6F70616C  # arbitrary constant: "opal"
+
+
+def lock_first_admin_setup() -> None:
+    """Serialize first-admin creation until the transaction ends. Postgres only:
+    SQLite already serializes writers, and setup() re-checks after writing."""
+    if db.engine.dialect.name == "postgresql":
+        db.session.execute(db.text("SELECT pg_advisory_xact_lock(:key)"), {"key": _SETUP_LOCK_KEY})
+
+
+def more_than_one_admin() -> bool:
+    return db.session.execute(
+        db.select(func.count(Member.id)).where(Member.role == "admin")).scalar_one() > 1
 
 
 def ensure_admin(email: str, display_name: str) -> User:
@@ -170,12 +180,15 @@ def log_setup_link_if_needed(app) -> None:
             db.session.remove()
         if needed:
             link = f"{app.config['BASE_URL']}/setup?token={new_setup_token()}"
-            if app.config.get("IN_CONTAINER"):
-                logger.warning("No admin yet. Create the first admin within 15 minutes: %s "
-                               "(or set SETUP_PASSWORD)", link)
-            else:
+            # "From this machine" only helps when open setup can apply to it.
+            open_from_here = (app.config.get("SETUP_OPEN") is None
+                              and not app.config.get("IN_CONTAINER"))
+            if open_from_here:
                 logger.warning("No admin yet. Open the app from this machine, or create the "
                                "first admin within 15 minutes: %s", link)
+            else:
+                logger.warning("No admin yet. Create the first admin within 15 minutes: %s "
+                               "(or set SETUP_PASSWORD)", link)
             if app.config.get("SETUP_OPEN") is True:
                 logger.warning("SETUP_OPEN is on: anyone who can reach this app can "
                                "create the first admin.")
