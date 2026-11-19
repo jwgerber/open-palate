@@ -16,22 +16,28 @@ const REFUSALS = {
   already_loaded: 'Sample data is already loaded.',
 };
 
-export default function SampleDataCard({ onLoaded }) {
+export default function SampleDataCard({ onLoaded, hasCoffees }) {
   const { isAdmin } = useTastingIdentity();
   const [empty, setEmpty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
+  // The host may already know the group has a (non-archived) coffee. Otherwise ask the server on
+  // mount and whenever the window regains focus, so the card goes once a coffee is added elsewhere.
+  const known = hasCoffees === true;
   useEffect(() => {
     if (!isAdmin) return undefined;
+    if (known) { setEmpty(false); return undefined; }
     let live = true;
-    // A failed check just means no card: the app works the same without it.
-    tastingApi.getCoffees({ includeArchived: true })
+    const check = () => tastingApi.getCoffees({ includeArchived: true })
       .then((d) => { if (live) setEmpty((d?.coffees ?? []).length === 0); })
+      // A failed check just means no card: the app works the same without it.
       .catch((e) => console.warn('Sample data card: could not check for coffees', e));
-    return () => { live = false; };
-  }, [isAdmin]);
+    check();
+    window.addEventListener('focus', check);
+    return () => { live = false; window.removeEventListener('focus', check); };
+  }, [isAdmin, known]);
 
   if (!isAdmin || !empty) return null;
 
@@ -40,8 +46,10 @@ export default function SampleDataCard({ onLoaded }) {
     try {
       await api.post('/group/sample-data');
     } catch (e) {
-      if (e.response?.data?.error === 'already_loaded') setLoaded(true);
-      setError(REFUSALS[e.response?.data?.error] ?? apiErrorMessage(e, "Couldn't load sample data."));
+      const code = e.response?.data?.error;
+      if (code === 'already_loaded') setLoaded(true);
+      if (code === 'not_empty') setEmpty(false);  // can't succeed: the group has coffees now
+      setError(REFUSALS[code] ?? apiErrorMessage(e, "Couldn't load sample data."));
       setBusy(false);
       return;
     }

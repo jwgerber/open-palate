@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const refresh = vi.fn(() => Promise.resolve());
-vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ refresh }) }));
+vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ refresh, user: { email: 'robin@example.test' } }) }));
 const { invalidateCoffees } = vi.hoisted(() => ({ invalidateCoffees: vi.fn() }));
 vi.mock('../../tasting/tastingApi', () => ({ tastingApi: { invalidateCoffees } }));
 vi.mock('../../api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() } }));
@@ -184,6 +184,40 @@ describe('GroupSettingsPage', () => {
       expect(api.post).toHaveBeenCalledTimes(1);
       resolve({ data: { link: LINK, expires_at: '2030-01-01T00:00:00+00:00' } });
       await waitFor(() => expect(button).toBeEnabled());
+    });
+
+    it('guards against two clicks that land before a re-render', async () => {
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(() => Promise.resolve()) }, configurable: true });
+      api.post.mockReturnValue(new Promise(() => {}));
+      render(<GroupSettingsPage />);
+      const button = within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' });
+      // Call the React handler twice with the same props: no render happens in between.
+      const propsKey = Object.keys(button).find((k) => k.startsWith('__reactProps'));
+      const { onClick } = button[propsKey];
+      onClick({}); onClick({});
+      expect(api.post).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers the link for members and your own row, but not other admins or editors', async () => {
+      const list = [...members,
+        { id: 6, display_name: 'Ed Editor', email: 'ed@example.test', role: 'editor', active: true, signed_up: true },
+        { id: 7, display_name: 'Other Admin', email: 'other@example.test', role: 'admin', active: true, signed_up: true }];
+      api.get.mockImplementation((url) => Promise.resolve({ data: ({
+        '/group': { id: 1, name: 'Test Group', timezone: 'UTC' }, '/group/members': list, '/group/device-codes': [],
+      })[url] }));
+      render(<GroupSettingsPage />);
+      const name = 'Copy sign-in link';
+      expect(within(await rowOf('Robin Admin')).getByRole('button', { name })).toBeInTheDocument();
+      expect(within(await rowOf('Sam Mail')).getByRole('button', { name })).toBeInTheDocument();
+      expect(within(await rowOf('Ed Editor')).queryByRole('button', { name })).toBeNull();
+      expect(within(await rowOf('Other Admin')).queryByRole('button', { name })).toBeNull();
+    });
+
+    it('explains the manager_member refusal', async () => {
+      api.post.mockRejectedValue({ response: { status: 409, data: { error: 'manager_member' } } });
+      render(<GroupSettingsPage />);
+      await userEvent.click(within(await rowOf('Sam Mail')).getByRole('button', { name: 'Copy sign-in link' }));
+      expect(await screen.findByText('Admins and editors sign in by email.')).toBeInTheDocument();
     });
 
     it('announces the copied status politely and links the no-email hint to its button', async () => {

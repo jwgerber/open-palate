@@ -15,11 +15,12 @@ import { useAuth } from '../auth/AuthContext';
 export function useTastingIdentity() {
   const { kind, role, user, group } = useAuth();
   const isDevice = kind === 'device';
+  const isAdmin = kind === 'user' && role === 'admin';
   return {
     isPerson: kind === 'user',
     canManage: kind === 'user' && (role === 'editor' || role === 'admin'),
-    canCloseAny: kind === 'user' && role === 'admin',
-    isAdmin: kind === 'user' && role === 'admin',
+    canCloseAny: isAdmin,
+    isAdmin,
     isSharedDevice: isDevice,
     user,
     timezone: group?.timezone ?? 'UTC',

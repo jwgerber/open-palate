@@ -160,7 +160,7 @@ export default function CoffeesTab() {
           <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={pickFile} data-testid="coffee-csv-input" />
         </Box>
       )}
-      <Box sx={{ mb: 1.5 }}><SampleDataCard onLoaded={load} /></Box>
+      <Box sx={{ mb: 1.5 }}><SampleDataCard onLoaded={load} hasCoffees={data ? data.coffees.length > 0 : undefined} /></Box>
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {!data && !error && <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>}

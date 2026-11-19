@@ -1,5 +1,5 @@
 /** Admin: group name, members and roles, and one-time codes for shared devices. */
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, FormControlLabel, MenuItem, Paper, Switch, TextField, Typography,
 } from '@mui/material';
@@ -7,8 +7,8 @@ import { Autocomplete } from '@mui/material';
 import api from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { apiErrorMessage } from '../apiError';
-import { tastingApi } from '../tasting/tastingApi';
-import ConfirmDialog from '../common/ConfirmDialog';
+import CopySigninLink from './CopySigninLink';
+import SampleDataPanel from './SampleDataPanel';
 import { formatWhen, formatTime } from '../time';
 
 const browserZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
@@ -59,11 +59,6 @@ function GroupName({ group, onSaved }) {
   );
 }
 
-const LINK_ERRORS = {
-  other_group: 'This email belongs to someone in another group.',
-  not_linked: "Couldn't link this person's account.",
-};
-
 // Sample members are read-only: the server refuses edits and sign-in links for them.
 function SampleMemberRow({ member }) {
   return (
@@ -76,19 +71,8 @@ function SampleMemberRow({ member }) {
   );
 }
 
-function pointsAtLocalhost(link) {
-  try { return ['localhost', '127.0.0.1'].includes(new URL(link).hostname); }
-  catch { return false; }
-}
-
-function MemberRow({ member, onChange, onError }) {
+function MemberRow({ member, isSelf, onChange, onError }) {
   const [editing, setEditing] = useState(false);
-  // The link lives in this state only: never stored, never logged. It is set only when the clipboard refuses.
-  const [fallbackLink, setFallbackLink] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [linkBusy, setLinkBusy] = useState(false);
-  const [localhostLink, setLocalhostLink] = useState(false);
-  const emailHintId = useId();
   const [name, setName] = useState(member.display_name);
   const [email, setEmail] = useState(member.email ?? '');
   const patch = async (changes) => {
@@ -103,27 +87,7 @@ function MemberRow({ member, onChange, onError }) {
       return false;
     }
   };
-  const copyLink = async () => {
-    // Each request supersedes the last link, so a second click while one is pending would kill the first.
-    if (linkBusy) return;
-    setLinkBusy(true);
-    setCopied(false); setFallbackLink(null); setLocalhostLink(false);
-    try {
-      let link;
-      try {
-        link = (await api.post(`/group/members/${member.id}/signin-link`)).data.link;
-      } catch (e) {
-        onError(LINK_ERRORS[e.response?.data?.error] ?? apiErrorMessage(e, "Couldn't make a sign-in link."));
-        return;
-      }
-      setLocalhostLink(pointsAtLocalhost(link));
-      try { await navigator.clipboard.writeText(link); setCopied(true); }
-      catch { setFallbackLink(link); }
-    } finally {
-      setLinkBusy(false);
-    }
-  };
-  const startEdit = () => { setFallbackLink(null); setCopied(false); setName(member.display_name); setEmail(member.email ?? ''); setEditing(true); };
+  const startEdit = () => { setName(member.display_name); setEmail(member.email ?? ''); setEditing(true); };
   const saveEdit = async () => {
     const changes = {};
     if (name.trim() !== member.display_name) changes.display_name = name.trim();
@@ -155,33 +119,14 @@ function MemberRow({ member, onChange, onError }) {
         {ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
       </TextField>
       <FormControlLabel control={<Switch checked={member.active} onChange={(e) => patch({ active: e.target.checked })} />} label="Active" />
-      {member.active && (
-        <Box sx={{ flexBasis: '100%' }}>
-          <Button size="small" onClick={copyLink} disabled={!member.email || linkBusy} aria-describedby={member.email ? undefined : emailHintId}>Copy sign-in link</Button>
-          {!member.email && <Typography id={emailHintId} component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>Add an email first</Typography>}
-          <span aria-live="polite">
-            {copied && <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>Copied. Works once, for 24 hours.</Typography>}
-          </span>
-          {localhostLink && (
-            <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
-              This link points at localhost. Set BASE_URL to your server's address so it works on other devices.
-            </Typography>
-          )}
-          {fallbackLink && (
-            <TextField
-              size="small" fullWidth value={fallbackLink} onFocus={(e) => e.target.select()}
-              slotProps={{ htmlInput: { readOnly: true, 'aria-label': 'Sign-in link' } }}
-              helperText="Copy it from here. Works once, for 24 hours."
-              sx={{ mt: 0.5 }}
-            />
-          )}
-        </Box>
-      )}
+      <CopySigninLink member={member} isSelf={isSelf} onError={onError} />
     </Box>
   );
 }
 
 function Members({ reloadKey }) {
+  const { user } = useAuth();
+  const isSelf = (m) => !!user?.email && m.email?.toLowerCase() === user.email.toLowerCase();
   const [members, setMembers] = useState(null);
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ display_name: '', email: '', role: 'member' });
@@ -213,7 +158,7 @@ function Members({ reloadKey }) {
       {!members && <CircularProgress size={24} />}
       {members?.map((m) => (m.is_sample
         ? <SampleMemberRow key={m.id} member={m} />
-        : <MemberRow key={m.id} member={m} onChange={replace} onError={setError} />))}
+        : <MemberRow key={m.id} member={m} isSelf={isSelf(m)} onChange={replace} onError={setError} />))}
       <Box component="form" onSubmit={add} sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
         <TextField label="Name" size="small" value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
         <TextField label="Email (optional)" size="small" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -278,35 +223,6 @@ function DeviceCodes() {
   );
 }
 
-function SampleData({ onRemoved }) {
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const remove = async () => {
-    setError(null); setBusy(true);
-    try { await api.delete('/group/sample-data'); }
-    catch (e) { setError(apiErrorMessage(e, "Couldn't remove the sample data.")); setBusy(false); return; }
-    // The coffee list is cached for a minute; the sample coffees must not linger in it.
-    tastingApi.invalidateCoffees();
-    onRemoved();
-  };
-  return (
-    <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-      <Typography variant="h2" sx={{ fontSize: 18, mb: 0.5 }}>Sample data</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Example coffees, tasters and a flight are loaded in this group.
-      </Typography>
-      {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
-      <Button variant="outlined" color="error" onClick={() => setConfirming(true)} disabled={busy}>Remove sample data</Button>
-      <ConfirmDialog
-        open={confirming} title="Remove sample data?" confirmLabel="Remove" confirmColor="error"
-        message="Removes the sample coffees, tasters and flight. Real tastings stay."
-        onConfirm={remove} onClose={() => setConfirming(false)}
-      />
-    </Paper>
-  );
-}
-
 export default function GroupSettingsPage() {
   const [group, setGroup] = useState(null);
   const [error, setError] = useState(null);
@@ -321,7 +237,7 @@ export default function GroupSettingsPage() {
       {!group && !error && <CircularProgress />}
       {group && <GroupName group={group} onSaved={(g) => setGroup((prev) => ({ ...prev, ...g }))} />}
       {group?.sample_data && (
-        <SampleData onRemoved={() => { setGroup((g) => ({ ...g, sample_data: false })); setMembersKey((k) => k + 1); }} />
+        <SampleDataPanel onRemoved={() => { setGroup((g) => ({ ...g, sample_data: false })); setMembersKey((k) => k + 1); }} />
       )}
       {group && <Members reloadKey={membersKey} />}
       {group && <DeviceCodes />}

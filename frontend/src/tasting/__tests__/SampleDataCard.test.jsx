@@ -62,18 +62,37 @@ describe('SampleDataCard', () => {
     expect(screen.queryByText('Explore with sample data')).toBeNull();
   });
 
-  it.each([
-    ['not_empty', "This group already has coffees, so sample data isn't available."],
-    ['already_loaded', 'Sample data is already loaded.'],
-  ])('explains a 409 %s in plain words', async (code, message) => {
-    apiMock.post.mockRejectedValue({ response: { status: 409, data: { error: code } } });
+  it('explains a 409 already_loaded in plain words and stays disabled', async () => {
+    apiMock.post.mockRejectedValue({ response: { status: 409, data: { error: 'already_loaded' } } });
     const onLoaded = vi.fn();
     render(<SampleDataCard onLoaded={onLoaded} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Load sample data' }));
-    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(await screen.findByText('Sample data is already loaded.')).toBeInTheDocument();
     expect(onLoaded).not.toHaveBeenCalled();
-    // already_loaded can't succeed on retry; not_empty could not either, but only already_loaded is known-final.
-    if (code === 'already_loaded') expect(screen.getByRole('button', { name: 'Load sample data' })).toBeDisabled();
-    else expect(screen.getByRole('button', { name: 'Load sample data' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Load sample data' })).toBeDisabled();
+  });
+
+  it('hides the card on a 409 not_empty: the group has coffees now', async () => {
+    apiMock.post.mockRejectedValue({ response: { status: 409, data: { error: 'not_empty' } } });
+    const onLoaded = vi.fn();
+    render(<SampleDataCard onLoaded={onLoaded} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Load sample data' }));
+    await waitFor(() => expect(screen.queryByText('Explore with sample data')).toBeNull());
+    expect(onLoaded).not.toHaveBeenCalled();
+  });
+
+  it('goes away when the host reports a coffee was added', async () => {
+    const { rerender } = render(<SampleDataCard onLoaded={vi.fn()} hasCoffees={false} />);
+    expect(await screen.findByText('Explore with sample data')).toBeInTheDocument();
+    rerender(<SampleDataCard onLoaded={vi.fn()} hasCoffees />);
+    await waitFor(() => expect(screen.queryByText('Explore with sample data')).toBeNull());
+  });
+
+  it('re-checks when the window regains focus', async () => {
+    render(<SampleDataCard onLoaded={vi.fn()} />);
+    expect(await screen.findByText('Explore with sample data')).toBeInTheDocument();
+    tasting.getCoffees.mockResolvedValue({ coffees: [{ id: 1 }], roasters: [] });
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => expect(screen.queryByText('Explore with sample data')).toBeNull());
   });
 });
