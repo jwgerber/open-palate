@@ -129,6 +129,8 @@ SECRET_KEY=dev BASE_URL=http://localhost:5173 DATABASE_URL=sqlite:///dev.db .ven
 cd frontend && npm ci && npm run dev
 ```
 
+A relative SQLite `DATABASE_URL` such as `sqlite:///dev.db` puts the file in `instance/` (here `instance/dev.db`), created on first use.
+
 Tests: `pytest` for the backend (set `TEST_DATABASE_URL` to also run on Postgres), `cd frontend && npx vitest run` for the frontend. CI runs both, on SQLite and Postgres.
 
 ## Flavor wheel

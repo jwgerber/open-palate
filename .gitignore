@@ -9,3 +9,5 @@ dist/
 .env
 *.db-shm
 *.db-wal
+instance/
+secret_key

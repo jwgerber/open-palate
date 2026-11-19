@@ -30,8 +30,12 @@ def absolute_sqlite_uri(database_uri: str) -> str:
     """A ``sqlite:///relative.db`` URI rewritten to its real place under the
     instance folder, so the database and its secret key can never part ways."""
     db_file = _sqlite_file(database_uri)
-    if db_file is None or db_file.is_absolute():
+    if db_file is None:
         return database_uri
+    if db_file.is_absolute():
+        return database_uri
+    INSTANCE_DIR.mkdir(parents=True, exist_ok=True)  # Flask-SQLAlchemy no longer does it for us
+    (INSTANCE_DIR / db_file).parent.mkdir(parents=True, exist_ok=True)
     query = database_uri.partition("?")[1:]
     return f"sqlite:///{INSTANCE_DIR / db_file}{''.join(query)}"
 

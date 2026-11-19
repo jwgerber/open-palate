@@ -139,3 +139,14 @@ def test_in_memory_sqlite_gets_a_per_process_key(tmp_path):
         second = load_config({"DATABASE_URL": uri, "BASE_URL": "http://localhost"})
         assert len(first["SECRET_KEY"]) >= 64
         assert first["SECRET_KEY"] != second["SECRET_KEY"]
+
+
+def test_relative_sqlite_with_secret_key_creates_the_folder(tmp_path, monkeypatch):
+    import config
+    from sqlalchemy import create_engine, text
+    monkeypatch.setattr(config, "INSTANCE_DIR", tmp_path / "instance")
+    loaded = load_config({"DATABASE_URL": "sqlite:///dev.db", "SECRET_KEY": "dev",
+                          "BASE_URL": "http://localhost"})
+    assert (tmp_path / "instance").is_dir()
+    with create_engine(loaded["SQLALCHEMY_DATABASE_URI"]).connect() as conn:
+        assert conn.execute(text("select 1")).scalar() == 1

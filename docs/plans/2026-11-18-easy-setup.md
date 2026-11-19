@@ -112,7 +112,7 @@
 - Test: `tests/identity/test_signin_link_copy.py` (create)
 
 **Interfaces:**
-- Produces: `ADMIN_LINK_TTL = timedelta(hours=24)`; `issue_signin_link(user, ttl=LINK_TTL, supersede=False) -> str` (supersede marks the user's other unused `signin` tokens `used_at=now`); route `POST /api/group/members/<int:member_id>/signin-link` → `{"link": str, "expires_at": iso}`.
+- Produces: `ADMIN_LINK_TTL = timedelta(hours=24)`; `issue_signin_link(user, ttl=LINK_TTL, supersede=False) -> tuple[str, datetime]` (link, expires_at) (supersede marks the user's other unused `signin` tokens `used_at=now`); route `POST /api/group/members/<int:member_id>/signin-link` → `{"link": str, "expires_at": iso}`.
 
 - [ ] **Step 1: Write failing tests:**
   - `test_admin_gets_a_24h_link`: response 200; the `LoginToken` row has `purpose == "signin"`, `expires_at - now` within 24h ± 1 min; `GET` the link → redirect to `/` with a session cookie.
