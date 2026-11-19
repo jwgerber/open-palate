@@ -8,6 +8,12 @@ One Docker image runs the Flask API and the built web app. Data lives in SQLite 
 
 ## Quick start
 
+The image is published to `ghcr.io/jwgerber/open-palate` when a version tag (`v1.2.3`) is pushed. Until the first release is out, or while the package is private, build it yourself from a checkout and use `open-palate` in place of `ghcr.io/jwgerber/open-palate:latest` below:
+
+```sh
+docker build -t open-palate .
+```
+
 Try it on your own computer. No other settings are needed:
 
 ```sh
