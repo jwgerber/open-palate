@@ -4,14 +4,14 @@ Date: 2026-11-18. Status: draft, pending owner approval. Builder check done.
 
 ## Intent
 
-Release Count's Tasting module as a standalone, open-source app. Two uses:
+Release the original app's Tasting module as a standalone, open-source app. Two uses:
 
 1. **A café runs its own copy** for its staff.
 2. **A free hosted service for cuppers**, where a café's team has a private group
    and anyone can host an *open flight* shared by link.
 
 This is a **one-time fork**: the new repo starts from a copy of today's Tasting code;
-Count keeps its own Tasting unchanged and the two drift apart. Nothing is
+The original app keeps its own Tasting unchanged and the two drift apart. Nothing is
 synced back.
 
 ## Goals
@@ -31,11 +31,11 @@ synced back.
 
 ## Non-goals
 
-- Syncing with Count in either direction, or migrating Count's tasting history.
+- Syncing with the original app in either direction, or migrating the original app's tasting history.
   (A café can bring its coffee list across with the existing coffee CSV export →
   import.)
-- Fetco Settings (stays in Count).
-- Count's schedule-based taster picking (`shift_identity`, `/kiosk/on-shift`).
+- Fetco Settings (stays in the original app).
+- The original app's schedule-based taster picking (`shift_identity`, `/kiosk/on-shift`).
 - Payments, paid tiers, native apps.
 
 ## Anti-goals (failure even if it works)
@@ -45,7 +45,7 @@ synced back.
 - Data from one group visible to another group.
 - Shipping the SCA wheel or the Advanced form's layout publicly before the owner
   has permission (see Licensing).
-- Count branding, Count data, the shop's names, or Count's git history in the
+- The original app's branding, data, the shop's names, or the original app's git history in the
   new repo.
 
 ## Approaches considered
@@ -56,9 +56,9 @@ synced back.
 | B | Keep Supabase for auth + DB | Least auth code, easy hosted service; but every self-hosting café needs a Supabase project or Supabase's big self-host stack | Rejected: fights "cafés run it themselves" |
 | C | Rewrite in TypeScript (e.g. Next.js) | Friendlier to contributors; throws away tested code and hard-won rules | Rejected: a rebuild, not a fork |
 
-## What gets replaced (the Count seams)
+## What gets replaced (the original app's seams)
 
-| Count today | Fork |
+| Original app today | Fork |
 |---|---|
 | `payroll.models.Employee` | `Member` (per group roster row) |
 | `models.Store`, `tasting_coffee_stores` | `Group`; the store tag on coffees is dropped |
@@ -66,7 +66,7 @@ synced back.
 | `shift_identity` (pick a taster from published shifts) | Shared-device mode picks from the group's active members |
 | `utils.utc_to_eastern` / `STORE_TZ` | Per-group IANA timezone (`Group.timezone`) |
 | `documents.extract` model constants | A local `scan_models` setting |
-| `search_registry.py` ⌘K entry, `AppSidebar`, Count layout | Dropped; the fork has its own small shell |
+| `search_registry.py` ⌘K entry, `AppSidebar`, the original app's layout | Dropped; the fork has its own small shell |
 | `fetco/repository.py` → `TastingCoffee` | Nothing (Fetco not forked) |
 
 ## Data model
@@ -102,12 +102,12 @@ Changes to existing tables:
   user_id IS NOT NULL`. `taster_key` forms: `user:<id>`, `member:<id>`,
   `guest:<random>`, `paper:member:<id>`, `paper:name:<name>`.
 - `TastingCoffee`: `group_id`; `created_by` → FK `users.id`.
-- **Rename the two forms.** `sheet` values `quick` → `basic`, `bh` → `advanced`;
-  columns `bh_*` → `adv_*`, `bh_step` → `adv_step`, `bh_pass` → `adv_pass`.
-  No Barista Hustle name or branding anywhere: code, UI, printed sheets, CSV
+- **Rename the two forms.** `sheet` values `quick` → `basic`, the publisher-named sheet → `advanced`;
+  columns take the `adv_` prefix (`adv_*`, `adv_step`, `adv_pass`).
+  No cupping-sheet publisher's name or branding anywhere: code, UI, printed sheets, CSV
   headers, docs.
 
-Migrations: a fresh Alembic chain that builds from empty (unlike Count's
+Migrations: a fresh Alembic chain that builds from empty (unlike the original app's
 `create_all()` baseline). Tests run on SQLite and Postgres.
 
 **One person = one read per cup** (builder's call made explicit): every write
@@ -137,7 +137,7 @@ Four ways in:
    non-GET.
 2. **Shared device.** A group admin creates a device code; a tablet enters it
    once and gets a `device` session for that group (no user). Tasters pick
-   their name from the group's active members. Replaces Count's store iPad /
+   their name from the group's active members. Replaces the original app's store iPad /
    `tasting.kiosk`. A device can never see a palate, a label key, or host-only
    screens.
 3. **Guest on an open flight.** Opening a flight link and typing a name gives a
@@ -148,9 +148,9 @@ Four ways in:
 4. **Signed-in user on an open flight.** Same link; the read is stored under
    their `user:<id>` and counts toward their palate.
 
-Group roles replace Count's permission keys:
+Group roles replace the original app's permission keys:
 
-| Count key | Fork |
+| Original app key | Fork |
 |---|---|
 | `tasting.view`, `tasting.edit` | any member of the group (user or device session) |
 | `tasting.self` | a user session (a person) |
@@ -193,12 +193,12 @@ account enumeration).
   drift test are replaced by that endpoint plus a schema test on the files.
 - Today's content (SCA/WCR 2016 wheel, the Advanced form) is the initial
   content. **The repo stays private until the owner hears back** from SCA/WCR
-  and Barista Hustle. With a yes, it goes public as-is. With a no on the
+  and the cupping-sheet publisher. With a yes, it goes public as-is. With a no on the
   lexicon, that file is replaced with original content and nothing else
   changes.
 - **The Advanced form keeps fixed columns** (owner decision): ten `adv_*` score
   columns, 7.0 = D/Q, 7.5–10, required bar vote, as today. The content file
-  carries its labels and wording only. A no from Barista Hustle therefore means
+  carries its labels and wording only. A no from the cupping-sheet publisher therefore means
   a migration plus code changes to scoring, entry, print and scan, accepted as
   the cost of a much smaller port now.
 
@@ -286,7 +286,7 @@ data.
 
 Each phase ships on its own.
 
-1. **Café self-host.** New repo; strip Count seams; groups/members/roles; email
+1. **Café self-host.** New repo; strip the original app's seams; groups/members/roles; email
    sign-in + `create-admin` + logged setup link; shared device; Basic/Advanced
    rename; content files; SQLite + Postgres; Docker image on GHCR; proxy
    handling; `flask backup`; `/healthz`; `render.yaml` + Deploy button; README
@@ -301,7 +301,7 @@ Each phase ships on its own.
 
 - Frontend shell and routing (keep `/f/<id>`-style links working for open flights).
 - Exact session/CSRF library choice (or hand-rolled, kept small).
-- How tests are ported (carry over Count's tasting tests, rewrite identity
+- How tests are ported (carry over the original app's tasting tests, rewrite identity
   fixtures to the new model).
-- Which Count frontend helpers are copied vs. rewritten (`apiError`,
+- Which of the original app's frontend helpers are copied vs. rewritten (`apiError`,
   `ConfirmDialog`, `storeTime`).

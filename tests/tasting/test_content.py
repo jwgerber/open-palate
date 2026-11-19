@@ -153,7 +153,7 @@ BANNED_EXACT_HASHES = frozenset({
 })
 # (path, line number) pairs of reviewed false positives. Empty: none were found.
 EXACT_ALLOWLIST: frozenset = frozenset()
-SKIP_FILES = {"docs/spec.md", "docs/plan-phase1.md"}
+SKIP_FILES: set = set()
 TOKEN = re.compile(r"[A-Za-z0-9]+")
 ABBREVIATION = re.compile(r"\bBH\b|\bbh_")
 

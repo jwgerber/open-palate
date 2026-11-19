@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A new, private repo containing Count's Tasting module as a standalone app
+**Goal:** A new, private repo containing the original app's Tasting module as a standalone app
 that one café can run with one Docker container. It has its own sign-in, a shared
 tablet mode, and the Basic/Advanced forms.
 
-**Architecture:** Copy (no git history) Count's `tasting/` backend, its tests and
+**Architecture:** Copy (no git history) the original app's `tasting/` backend, its tests and
 `frontend/src/components/tasting/` into a fresh Flask + React/MUI repo. Replace
-every Count seam with a small identity layer: users, groups, members, sessions and
+every seam to the original app with a small identity layer: users, groups, members, sessions and
 device codes. One Flask process serves `/api/*` and the built Vite app. SQLite is
 the default, Postgres is supported, and the Alembic chain builds from empty.
 
@@ -16,16 +16,16 @@ the default, Postgres is supported, and the Alembic chain builds from empty.
 MUI 7, Vite 7, Vitest. Docker, GHCR, Render blueprint.
 
 **Spec:** `docs/superpowers/specs/2026-11-18-tasting-open-source-fork-design.md`
-(Count repo; Task 1 copies it into the new repo).
+(the original app's repo; Task 1 copies it into the new repo).
 
-**Where this runs:** In the NEW repo, not in Count. Count's files are read-only
-sources: no task edits anything in Count.
+**Where this runs:** In the NEW repo, not in the original app. The original app's files are read-only
+sources: no task edits anything in the original app.
 
 ## Global Constraints
 
-- License **AGPL-3.0**. The repo and the GHCR image stay **private** until the owner has permission from SCA/WCR and Barista Hustle.
-- No "Barista Hustle", "BH", "Count", "1369", "Central", "Inman" or shop staff names anywhere: code, UI, CSV headers, printed sheets or docs.
-- Form names: `sheet` values are `basic` and `advanced`. Columns `bh_*` → `adv_*`, `bh_step` → `adv_step`, `bh_pass` → `adv_pass`.
+- License **AGPL-3.0**. The repo and the GHCR image stay **private** until the owner has permission from SCA/WCR and the cupping-sheet publisher.
+- No third-party cupping-sheet brand name or its abbreviation, no original app name, and no shop, store or staff names anywhere: code, UI, CSV headers, printed sheets or docs. `tests/tasting/test_content.py` holds the list as sha256 digests.
+- Form names: `sheet` values are `basic` and `advanced`. Columns take the `adv_` prefix (`adv_*`, `adv_step`, `adv_pass`).
 - Behaviour kept exactly:
   - Blind is blind on the wire, host included, until close.
   - Reveal returns 409 while a flight is open.
@@ -65,10 +65,10 @@ sources: no task edits anything in Count.
 - Produces:
   - `create_app(config)`.
   - `db`.
-  - `utils.utc_now() -> datetime` (naive UTC), `utils.is_pg_int(v) -> bool`, `utils.csv_safe(s) -> str`, `utils.get_json_object() -> dict`, `utils.handle_db_errors` (decorator). Copy these five from Count's `utils.py` and nothing else.
+  - `utils.utc_now() -> datetime` (naive UTC), `utils.is_pg_int(v) -> bool`, `utils.csv_safe(s) -> str`, `utils.get_json_object() -> dict`, `utils.handle_db_errors` (decorator). Copy these five from the original app's `utils.py` and nothing else.
   - Fixtures `app`, `db_session` and `client` in `tests/conftest.py`. They use SQLite in memory by default, or Postgres when `TEST_DATABASE_URL` is set.
 
-- [ ] **Step 1:** `git init` a new private repo outside Count. Make the first commit with LICENSE, `.gitignore` and `docs/`.
+- [ ] **Step 1:** `git init` a new private repo outside the original app. Make the first commit with LICENSE, `.gitignore` and `docs/`.
 - [ ] **Step 2: Write the failing test.** `test_create_app_requires_secret_key`: with `SECRET_KEY` unset, `create_app()` raises `RuntimeError` mentioning `SECRET_KEY`. `test_database_url_defaults_to_data_sqlite`: with `DATABASE_URL` unset, `app.config["SQLALCHEMY_DATABASE_URI"] == "sqlite:////data/tasting.db"`.
 - [ ] **Step 3:** Run `pytest tests/test_app.py -v`. Expected: FAIL (no `app` module).
 - [ ] **Step 4:** Implement the factory, config and the five utils. Wrap `app.wsgi_app` in `ProxyFix(x_for=PROXY_HOPS, x_proto=PROXY_HOPS)` when `PROXY_HOPS > 0`.
@@ -113,21 +113,21 @@ device_codes  id, group_id FK, code_hash unique, created_by FK users, expires_at
 ### Task 3: Port the tasting tables (group-scoped, Basic/Advanced)
 
 **Files:**
-- Create: `tasting/models.py` (from Count's), `migrations/versions/0002_tasting.py`
-- Test: `tests/tasting/test_models.py` (from Count's `test_tasting_models.py`)
+- Create: `tasting/models.py` (from the original app's), `migrations/versions/0002_tasting.py`
+- Test: `tests/tasting/test_models.py` (from the original app's `test_tasting_models.py`)
 
 **Interfaces:**
 - Consumes: `Group`, `Member`, `User` (Task 2).
-- Produces the same model classes as Count, with these changes:
+- Produces the same model classes as the original app, with these changes:
   - `TastingCoffee.group_id` (NOT NULL); `created_by` FK `users.id` NULL. `tasting_coffee_stores` and its relationship are dropped.
   - `TastingFlight`: `group_id`; `host_member_id` FK `members.id` NULL; `host_user_id` FK `users.id` NULL. New `is_open_link` bool, default false (unused until Phase 2).
   - `Tasting`: `member_id` FK `members.id` NULL; `user_id` FK `users.id` NULL. Rows that hang off a flight get their group through the flight.
   - Partial unique indexes `uq_tasting_flight_coffee_member (flight_id, coffee_id, member_id) WHERE member_id IS NOT NULL` and `uq_tasting_flight_coffee_user (flight_id, coffee_id, user_id) WHERE user_id IS NOT NULL`. The existing `(flight_id, coffee_id, taster_key)` unique constraint is kept.
-  - `SHEETS = ("basic", "advanced")`. `BH_CATEGORIES` → `ADV_CATEGORIES`. All `bh_*` columns and check names → `adv_*`.
+  - `SHEETS = ("basic", "advanced")`. Categories are `ADV_CATEGORIES`; every advanced-sheet column and check name takes the `adv_` prefix.
   - `taster_key` forms: `user:<id>`, `member:<id>`, `paper:member:<id>`, `paper:name:<name>`. The `guest:` form is Phase 2.
   - `TastingFlight.created_at`-style columns stay naive UTC.
 
-- [ ] **Step 1:** Copy Count's model tests and rewrite their fixtures to the new FKs. Add:
+- [ ] **Step 1:** Copy the original app's model tests and rewrite their fixtures to the new FKs. Add:
   - `test_member_and_user_unique_indexes`: two `Tasting` rows with the same `(flight, coffee, member_id)` and different `taster_key`s raise `IntegrityError`. Same for `user_id`.
   - `test_no_bh_identifiers`: walk `Base.metadata` and assert that no table, column, index or constraint name contains `bh`.
 - [ ] **Step 2:** Run. Expected: FAIL.
@@ -190,7 +190,7 @@ device_codes  id, group_id FK, code_hash unique, created_by FK users, expires_at
   - `DELETE /api/group/device-codes/<id>` revokes the code and every device session it created.
 - Device routes:
   - `POST /api/device/enter {code}`: when the code is valid, starts a `device` session for that group (expires after 365 days, rolling). The code is single-use; 10/min per IP.
-  - `GET /api/device/members` lists the active members `[{id, display_name}]` sorted by name. This replaces Count's `/kiosk/on-shift`.
+  - `GET /api/device/members` lists the active members `[{id, display_name}]` sorted by name. This replaces the original app's `/kiosk/on-shift`.
 
 - [ ] **Step 1: Write failing tests.**
   - `test_device_code_single_use`
@@ -244,7 +244,7 @@ In Phase 1 the group comes from the session: the single member row for a user, o
 
 **Files:**
 - Create:
-  - `tasting/repository.py`: the coffee half of Count's file. Split it, with flights going to `tasting/flights_repository.py` in 7b, keeping each under ~600 lines.
+  - `tasting/repository.py`: the coffee half of the original app's file. Split it, with flights going to `tasting/flights_repository.py` in 7b, keeping each under ~600 lines.
   - `tasting/coffee_csv.py`, `tasting/coffee_sessions.py`
   - `tasting/content.py`
   - `content/lexicon.json`, `content/forms.json`, `content/schema/*.json`
@@ -252,8 +252,8 @@ In Phase 1 the group comes from the session: the single member row for a user, o
 - Test: ported `test_tasting_coffee_csv.py`, `test_tasting_coffee_sessions.py`, `test_tasting_lexicon.py` → `tests/tasting/test_content.py`, plus the coffee cases from `test_tasting_routes.py`
 
 **Interfaces:**
-- Every repository function that took `store_id`, `employee_id` or a Count `user_id` string now takes `group_id: int` and/or `actor: Actor`. `TasterIdentity` is rebuilt from `Actor` (`key()` emits the Task 3 forms).
-- `content.load() -> Content`, read once at startup. `Content` has `lexicon` (Count's `TREE` and enums, unchanged) and `forms` (`basic`: scales and labels; `advanced`: category labels, step wording and vote wording). Scores, D/Q 7.0, the 7.5–10 range and the required bar vote stay in code (spec: fixed columns).
+- Every repository function that took `store_id`, `employee_id` or an original-app `user_id` string now takes `group_id: int` and/or `actor: Actor`. `TasterIdentity` is rebuilt from `Actor` (`key()` emits the Task 3 forms).
+- `content.load() -> Content`, read once at startup. `Content` has `lexicon` (the original app's `TREE` and enums, unchanged) and `forms` (`basic`: scales and labels; `advanced`: category labels, step wording and vote wording). Scores, D/Q 7.0, the 7.5–10 range and the required bar vote stay in code (spec: fixed columns).
 - `GET /api/content` (`member` level) returns `Content` as JSON with an `ETag`.
 - `coffee_sessions` buckets days with `utils.to_group_local(dt, tz: str) -> datetime` (add it to `utils.py`), replacing `utc_to_eastern`.
 - The coffee CSV drops the store column. Importing a file that has a `stores` header ignores that column and reports a warning `ignored_column: stores`.
@@ -262,9 +262,9 @@ In Phase 1 the group comes from the session: the single member row for a user, o
   - `test_sessions_bucket_by_group_timezone` (group `America/Los_Angeles`, flight at 06:30 UTC → the previous local day)
   - `test_coffee_in_other_group_404`
   - `test_content_files_match_schema`
-  - `test_content_has_no_brand_strings` (no "Barista Hustle" or "BH" in `content/`)
+  - `test_content_has_no_brand_strings` (no publisher name or abbreviation in `content/`)
 - [ ] **Step 2:** Run. Expected: FAIL.
-- [ ] **Step 3:** Port. Generate `content/lexicon.json` once from Count's `tasting/lexicon.py` with a throwaway script; do not commit the script.
+- [ ] **Step 3:** Port. Generate `content/lexicon.json` once from the original app's `tasting/lexicon.py` with a throwaway script; do not commit the script.
 - [ ] **Step 4:** Run. Expected: PASS.
 - [ ] **Step 5:** Commit: `coffees, coffee CSV, sessions, content files`.
 
@@ -276,7 +276,7 @@ In Phase 1 the group comes from the session: the single member row for a user, o
 
 **Interfaces:**
 - Consumes: `Actor`, `require`, `actor_for_pick` (Task 6); `to_group_local` (7a).
-- Routes keep Count's paths (minus `/kiosk/on-shift`), with levels as in Count's keys mapped by Task 6.
+- Routes keep the original app's paths (minus `/kiosk/on-shift`), with levels as in the original app's keys mapped by Task 6.
 - Device writes send `member_id` in the body. Writes stamp both `member_id` and `user_id` (from the member's `user_id`). A user write stamps `user_id` and their own `member_id`.
 - **Host rules:**
   - A user or a device can host. On a device, `host_member_id` is the picked member and `host_user_id` is NULL.
@@ -284,7 +284,7 @@ In Phase 1 the group comes from the session: the single member row for a user, o
   - The label key is never served to a device session.
 - **Paper entry and scan:** the host (either door) or `manage`.
 - **Palate:** `self` level. It reads rows where `user_id = me` OR `member_id IN (my member rows)`.
-- **Scan:** `scan_models` comes from config (default: Count's `FALLBACK_MODELS` values, copied). `POST …/paper/scan` returns 404 `scan_disabled` when `ANTHROPIC_API_KEY` is unset. Photos are never stored or logged.
+- **Scan:** `scan_models` comes from config (default: the original app's `FALLBACK_MODELS` values, copied). `POST …/paper/scan` returns 404 `scan_disabled` when `ANTHROPIC_API_KEY` is unset. Photos are never stored or logged.
 - Printed sheets, CSV headers and flight-CSV columns use the `adv_` / Advanced names.
 
 - [ ] **Step 1:** Port the tests. Add:
@@ -309,7 +309,7 @@ In Phase 1 the group comes from the session: the single member row for a user, o
   - `src/main.jsx`, `src/App.jsx`, `src/api.js`
   - `src/auth/AuthContext.jsx`, `src/auth/SignInPage.jsx`, `src/auth/DeviceCodePage.jsx`, `src/auth/SetupPage.jsx`
   - `src/admin/GroupSettingsPage.jsx` (group, members, device codes)
-- Copy: `frontend/src/components/tasting/**` from Count to `src/tasting/**`. **Exclude** `fetco/`. Rename `bh/` → `advanced/` and every `Bh`/`bh` identifier and label to Advanced.
+- Copy: `frontend/src/components/tasting/**` from the original app to `src/tasting/**`. **Exclude** `fetco/`. Rename the publisher-named folder to `advanced/` and every identifier and label carrying its abbreviation to Advanced.
 - Copy and adapt: `utils/apiError.js`, `common/ConfirmDialog.jsx`. Replace `utils/storeTime` with `src/time.js` taking the group time zone. Drop `AppContext` uses (stores) and `lexicon.generated.js`.
 - Test: the ported `__tests__` (minus fetco), plus `src/auth/__tests__/*.test.jsx`
 
@@ -324,7 +324,7 @@ In Phase 1 the group comes from the session: the single member row for a user, o
   - `SignInPage` shows the same message for any email
   - `DeviceCodePage` stores nothing in `localStorage`
   - `api.js` sends `X-CSRF-Token` on POST
-  - `test_no_bh_strings`: grep `src/` for `/\bbh\b|Barista|Hustle/i` → none
+  - `test_no_bh_strings`: no publisher name or abbreviation in `src/`
 - [ ] **Step 2:** Run `npx vitest run`. Expected: FAIL.
 - [ ] **Step 3:** Port.
 - [ ] **Step 4:** Run `npx vitest run` and `npm run build`. Expected: PASS, build OK.
@@ -369,16 +369,16 @@ In Phase 1 the group comes from the session: the single member row for a user, o
 ### Task 10: Whole-branch review and clean-room check
 
 - [ ] **Step 1:** Run `requesting-code-review` over the whole repo, with the anti-goals from the spec as the brief. Fix critical and high findings.
-- [ ] **Step 2:** Clean-room grep over the repo, case-insensitive, for `count|1369|central|inman|barista hustle|\bbh_|supabase|employee|store_id|shift_identity|fetco`. Expected: no hits outside `docs/spec.md` and `docs/plan-phase1.md`.
+- [ ] **Step 2:** Clean-room scan: `pytest tests/tasting/test_content.py` (banned names, held as digests), plus a case-insensitive grep for leftover seams (`supabase|employee|store_id|shift_identity|fetco`). Expected: no hits outside the two design docs.
 - [ ] **Step 3:** Run `git log --format=%B | grep -i count` to check commit messages. Expected: none.
 - [ ] **Step 4:** Commit any fixes: `review fixes`.
 
 ## Ship Checklist
 
 - [ ] **Owner:** repo/app name chosen (Task 1 gate).
-- [ ] **Repo:** created **private** on GitHub with Actions enabled. No push to a public remote until SCA/WCR and Barista Hustle permission is in hand.
-- [ ] **Migration:** None in Count. The new repo's `0001`/`0002` run on container start.
-- [ ] **Env vars:** none on Count's Render. The new app's are listed in the README.
+- [ ] **Repo:** created **private** on GitHub with Actions enabled. No push to a public remote until SCA/WCR and cupping-sheet publisher permission is in hand.
+- [ ] **Migration:** None in the original app. The new repo's `0001`/`0002` run on container start.
+- [ ] **Env vars:** none on the original app's Render. The new app's are listed in the README.
 - [ ] **Third-party config:** GHCR package visibility left **private**. The `image.yml` workflow uses `GITHUB_TOKEN` (`packages: write`).
 - [ ] **Smoke 1 (local Docker):**
   1. Run the Task 9 command and open the setup link from the log.
@@ -388,4 +388,4 @@ In Phase 1 the group comes from the session: the single member row for a user, o
   5. Check: no scores are visible in DevTools responses before close. After close, the reveal shows both.
   6. `docker exec <c> flask backup` prints a path.
 - [ ] **Smoke 2 (Render, private):** deploy from `render.yaml` (paid plan + disk); read the setup link from Render's logs and sign in; `/healthz` returns 200; redeploy and the data survives; delete the service afterwards.
-- [ ] **Docs:** README complete per Task 9. Count's spec status line updated to "Phase 1 built in <repo>". No Count CLAUDE.md change (Count is unchanged).
+- [ ] **Docs:** README complete per Task 9. The original app's spec status line updated to "Phase 1 built in <repo>". No CLAUDE.md change in the original app (the original app is unchanged).
