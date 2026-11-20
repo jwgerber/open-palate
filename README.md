@@ -145,7 +145,7 @@ Tests: `pytest` for the backend (set `TEST_DATABASE_URL` to also run on Postgres
 
 ## Flavor wheel
 
-The flavor wheel is the SCA / World Coffee Research Coffee Taster's Flavor Wheel (2016), extended with notes from the Counter Culture Coffee Taster's Flavor Wheel (2020). The terms live in `content/lexicon.json`.
+The flavor wheel is inspired by the SCA / World Coffee Research Coffee Taster's Flavor Wheel (2016), extended with notes from the Counter Culture Coffee Taster's Flavor Wheel (2020). The terms live in `content/lexicon.json`.
 
 ## License
 
