@@ -211,9 +211,9 @@
 
 ## Ship Checklist
 
-- [ ] Migration: `0005` (sample flags) — runs on start via `start.sh`; check a fresh SQLite install and an upgraded dev DB both start.
-- [ ] Env vars: none required. New optional `SETUP_OPEN`, `SETUP_PASSWORD`; Dockerfile sets `OPEN_PALATE_CONTAINER=1`.
-- [ ] Third-party config: none.
-- [ ] Smoke (local, browser): delete `dev.db` and `secret_key`, start with no `SECRET_KEY`/`BASE_URL` → `/` goes to `/setup` with the form; create the admin; Group settings → Copy sign-in link for a member, open it in a private window → signed in as that member; Log → Load sample data → coffee page shows 3 reads; Remove sample data → gone.
+- [x] Migration: `0005` (sample flags) — runs on start via `start.sh`; check a fresh SQLite install and an upgraded dev DB both start. Done 2026-11-20 (fresh install and a 0004 copy both start).
+- [x] Env vars: none required. New optional `SETUP_OPEN`, `SETUP_PASSWORD`; Dockerfile sets `OPEN_PALATE_CONTAINER=1`.
+- [x] Third-party config: none.
+- [x] Smoke (local, browser): delete `dev.db` and `secret_key`, start with no `SECRET_KEY`/`BASE_URL` → `/` goes to `/setup` with the form; create the admin; Group settings → Copy sign-in link for a member, open it in a private window → signed in as that member; Log → Load sample data → coffee page shows 3 reads; Remove sample data → gone. Done 2026-11-20 on a fresh SQLite file (dev.db left in place); the upgraded-DB check used a copy of a 0004 dev DB.
 - [ ] Smoke (Docker, first real build): `docker build` then the README laptop command → setup form shows; without `SETUP_OPEN` → the closed page.
 - [ ] Docs: README (Task 9); memory note `project_open_palate_fork.md` updated.
