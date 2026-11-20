@@ -1,22 +1,35 @@
-# Render blueprint. The image is pulled from GHCR; set `image.url` to your
-# published tag, and add registry credentials in the Render dashboard while the
-# package is private.
+# Render blueprint: a FREE trial, and the one the README's Deploy to Render
+# button uses (the button always reads render.yaml). Not for keeping data:
+# Render deletes a free Postgres database 30 days after it is created (plus a
+# 14-day grace period), and a free web service sleeps after 15 idle minutes (the
+# next visit waits about a minute). For real use, deploy render.paid.yaml
+# (paid, with a disk): New > Blueprint, and set Blueprint Path to it.
+#
+# Render builds the image from the Dockerfile, so no published image or
+# registry credentials are needed. The app finds its own address from Render's
+# RENDER_EXTERNAL_URL; set BASE_URL only for a custom domain.
 services:
   - type: web
-    name: open-palate
-    runtime: image
-    image:
-      url: ghcr.io/jwgerber/open-palate:latest
-    plan: starter        # a disk needs a paid instance (about $7/month plus $0.25/GB disk)
+    name: open-palate-trial
+    runtime: docker
+    plan: free
+    region: oregon       # keep the same region as the database
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /healthz
-    disk:
-      name: data
-      mountPath: /data
-      sizeGB: 1
     envVars:
-      - key: WEB_CONCURRENCY
-        value: "1"       # SQLite on one disk: keep a single worker
+      - key: DATABASE_URL
+        fromDatabase:
+          name: open-palate-trial-db
+          property: connectionString
       - key: SECRET_KEY
-        generateValue: true
-      - key: BASE_URL
-        sync: false      # prompted on deploy, e.g. https://open-palate.onrender.com
+        generateValue: true   # required with Postgres; keep it stable or everyone is signed out
+      - key: WEB_CONCURRENCY
+        value: "1"            # the free instance has 512 MB
+      - key: SETUP_PASSWORD
+        generateValue: true   # copy it from the service's Environment page into the setup page
+
+databases:
+  - name: open-palate-trial-db
+    plan: free
+    region: oregon
+    postgresMajorVersion: "16"   # what CI tests against

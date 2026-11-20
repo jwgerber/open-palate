@@ -1,0 +1,24 @@
+# Render blueprint for real use: always on, SQLite on a 1 GB disk. Create it in
+# the Render dashboard with New > Blueprint and set Blueprint Path to
+# render.paid.yaml (render.yaml is the free trial the Deploy button uses).
+# The image is pulled from GHCR; set `image.url` to your published tag, and add
+# registry credentials in the Render dashboard while the package is private.
+services:
+  - type: web
+    name: open-palate
+    runtime: image
+    image:
+      url: ghcr.io/jwgerber/open-palate:latest
+    plan: starter        # a disk needs a paid instance (about $7/month plus $0.25/GB disk)
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: WEB_CONCURRENCY
+        value: "1"       # SQLite on one disk: keep a single worker
+      - key: SECRET_KEY
+        generateValue: true
+      - key: BASE_URL
+        sync: false      # prompted on deploy, e.g. https://open-palate.onrender.com
