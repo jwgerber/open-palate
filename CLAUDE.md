@@ -18,7 +18,7 @@ cd frontend && npm run build              # build the SPA Flask serves
 
 Run locally, as the README describes: `alembic upgrade head`, then `flask run --port 8000`, with `npm run dev` for the frontend. With no `DATABASE_URL`, the app wants `/data`, which doesn't exist on a Mac. Pass an absolute SQLite URL such as `sqlite:////path/to/file.db` (a relative one lands in `instance/`). Docker isn't installed on this Mac, so the image has never been built locally.
 
-CI (`.github/workflows/ci.yml`) runs both suites on SQLite and Postgres. `image.yml` publishes `ghcr.io/jwgerber/open-palate` only on a `v*` tag.
+CI (`.github/workflows/ci.yml`) runs both suites on SQLite and Postgres, and builds the amd64 image and runs `scripts/docker-smoke.sh` against it. `image.yml` publishes `ghcr.io/jwgerber/open-palate` only on a `v*` tag.
 
 ## Rules
 
