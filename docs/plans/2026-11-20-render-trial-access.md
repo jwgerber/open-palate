@@ -137,7 +137,7 @@ Full tier: one fresh reviewer over the branch (`superpowers:requesting-code-revi
 
 ## Ship Checklist
 
-- [ ] Third-party config: in Render, change the `open-palate-trial` Blueprint's **Blueprint Path** from `render.free.yaml` to `render.yaml` **before merging**.
+- [ ] Third-party config: the `open-palate-trial` Blueprint tracks `main`. **Merge first**, then straight away change its **Blueprint Path** from `render.free.yaml` to `render.yaml`. Doing it before the merge would point it at main's old `render.yaml`, the paid blueprint, and could start a paid service. The one sync in between fails harmlessly, because `render.free.yaml` is gone. Then review and approve the new sync, which adds `SETUP_PASSWORD` and leaves the existing service and database in place.
 - [ ] Migration: none.
 - [ ] Env vars: none required. The trial keeps its `BASE_URL`, which still wins; its next sync adds a generated `SETUP_PASSWORD`, which is harmless because an admin exists.
 - [ ] Smoke: after merge, the trial redeploys. `/healthz` returns `{"ok":true}`, the sign-in page shows the email-off intro, and requesting a link for your email puts "Sign-in link for" in Render's logs. Once the repo is public, click the README button from a logged-out browser and check that Render proposes the free web service and database.

@@ -63,7 +63,7 @@ My calls (the owner can override):
   - `render.free.yaml` is renamed to `render.yaml`.
   - The old `render.yaml` becomes `render.paid.yaml`.
   - The service and database names stay `open-palate-trial` and `open-palate-trial-db`.
-- **Your existing trial Blueprint** currently points at `render.free.yaml`. Its Blueprint Path is changed to `render.yaml` in Render before the rename merges, so its next sync doesn't fail. This goes in the Ship Checklist.
+- **Your existing trial Blueprint** currently points at `render.free.yaml`. It tracks `main`, so its Blueprint Path is changed to `render.yaml` right *after* the rename merges. Changing it before would point it at main's paid `render.yaml`. This goes in the Ship Checklist.
 - **The button:** goes in the README's "Free trial on Render" section as Render's standard badge, linking to `https://render.com/deploy?repo=https://github.com/jwgerber/open-palate`, with a note that it works once the repository is public.
 
 ## What changes
@@ -97,7 +97,7 @@ More of my calls, from the builder check:
 
 ## Ship Checklist
 
-- [ ] Third-party config: in Render, change the `open-palate-trial` Blueprint's Blueprint Path from `render.free.yaml` to `render.yaml` before merging.
+- [ ] Third-party config: the `open-palate-trial` Blueprint tracks `main`. **Merge first**, then straight away change its **Blueprint Path** from `render.free.yaml` to `render.yaml`. Doing it before the merge would point it at main's old `render.yaml`, the paid blueprint, and could start a paid service. The one sync in between fails harmlessly, because `render.free.yaml` is gone. Then review and approve the new sync, which adds `SETUP_PASSWORD` and leaves the existing service and database in place.
 - [ ] Migration: none.
 - [ ] Env vars: none required. The existing trial keeps its `BASE_URL`, which still wins over the fallback.
 - [ ] Smoke: after merge, the trial redeploys from `render.yaml`. `/healthz` is OK, and the sign-in page shows the email-off copy. The existing trial gets a generated `SETUP_PASSWORD` too, which is harmless because it already has an admin. Once the repo is public, click the README button from a logged-out browser and confirm Render offers the trial plan.
