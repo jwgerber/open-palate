@@ -72,7 +72,7 @@ My calls (the owner can override):
 - **`identity/auth_routes.py`:** `setup_status` returns `email` in both branches.
 - **`frontend/src/auth/SignInPage.jsx`:** reads `email` from setup-status and shows the email-off copy. If the call fails, it keeps today's wording.
 - **Blueprints:**
-  - Rename `render.free.yaml` to `render.yaml`, drop its `BASE_URL` prompt, and add `SETUP_PASSWORD` with `sync: false`.
+  - Rename `render.free.yaml` to `render.yaml`, drop its `BASE_URL` prompt, and add `SETUP_PASSWORD` with `generateValue: true`.
   - Rename the old `render.yaml` to `render.paid.yaml`.
   - Update the header comment in each to say which is which and how to choose a Blueprint Path.
 - **README:**
