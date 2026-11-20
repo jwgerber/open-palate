@@ -167,7 +167,8 @@ def logout():
 
 
 def _group_dict(group: Group, role: str | None) -> dict:
-    return {"id": group.id, "name": group.name, "role": role, "timezone": group.timezone}
+    return {"id": group.id, "name": group.name, "role": role, "timezone": group.timezone,
+            "is_personal": group.is_personal}
 
 
 @auth_bp.get("/me")
@@ -186,7 +187,8 @@ def me():
         .where(Member.user_id == user.id, Member.active.is_(True)).order_by(Group.id)
     ).all()
     return jsonify({
-        "user": {"id": user.id, "email": user.email, "display_name": user.display_name},
+        "user": {"id": user.id, "email": user.email, "display_name": user.display_name,
+                 "is_owner": user.is_owner},
         "groups": [_group_dict(group, role) for group, role in rows],
         "kind": "user",
     })

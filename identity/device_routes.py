@@ -5,7 +5,7 @@ from sqlalchemy import func, update
 from extensions import db, limiter
 from identity.access import current_actor, require
 from identity.accounts import normalize_device_code
-from identity.models import DeviceCode, Member
+from identity.models import DeviceCode, Group, Member
 from identity.sessions import current_session, start_device_session
 from identity.tokens import hash_token
 from utils import get_json_object, handle_db_errors, utc_now
@@ -31,6 +31,9 @@ def enter():
     row = db.session.execute(
         db.select(DeviceCode).where(DeviceCode.code_hash == hash_token(code))
     ).scalar_one_or_none() if code else None
+    if row is not None and db.session.get(Group, row.group_id).is_personal:
+        db.session.rollback()   # a personal space has no devices; none can exist
+        return jsonify({"error": "not_found"}), 404
     now = utc_now()
     # Conditional UPDATE: two tablets typing the same code cannot both win.
     claimed = row is not None and db.session.execute(

@@ -166,3 +166,15 @@ def test_links_are_for_members_and_your_own_row_only(app, db_session):
     assert db.session.execute(db.select(LoginToken)).scalars().all() == []
     assert copy_link(client, headers, admin_member).status_code == 200
     assert copy_link(client, headers, add_roster_member(group)).status_code == 200
+
+
+def test_signin_link_refuses_owner_without_membership(app, db_session):
+    group, _, client, headers = setup_admin(app)
+    owner = User(email="owner@cafe.com", display_name="Owner", is_owner=True)
+    db.session.add(owner)
+    db.session.commit()
+    member = add_roster_member(group, email="owner@cafe.com")
+    response = copy_link(client, headers, member)
+    assert response.status_code == 409 and response.get_json()["error"] == "owner_member"
+    db.session.refresh(member)
+    assert member.user_id is None

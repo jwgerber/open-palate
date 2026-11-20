@@ -228,7 +228,7 @@ def test_consume_links_roster_member(client, db_session, sent):
     assert me["kind"] == "user"
     assert me["user"]["email"] == "owner@cafe.com"
     assert me["groups"] == [{"id": cafe.id, "name": "Cafe", "role": "editor",
-                             "timezone": "America/Chicago"}]
+                             "timezone": "America/Chicago", "is_personal": False}]
     assert db_session.query(Member).filter_by(user_id=user.id).count() == 1
 
 
@@ -512,3 +512,23 @@ def test_race_counts_owners(app, database_url, monkeypatch):
     assert (resp.status_code, resp.get_json()["error"]) == (409, "setup_done")
     with setup_app.app_context():
         assert db.session.query(User).count() == 0
+
+
+def test_me_reports_owner_and_personal(app, db_session):
+    from tests.identity.helpers import sign_in
+    user = User(email="o@cafe.com", display_name="O", is_owner=True)
+    db.session.add(user)
+    db.session.flush()
+    team = Group(name="Team")
+    mine = Group(name="My tastings", is_personal=True, personal_user_id=user.id)
+    db.session.add_all([team, mine])
+    db.session.flush()
+    db.session.add_all([Member(group_id=g.id, user_id=user.id, display_name="O", role="admin")
+                        for g in (team, mine)])
+    db.session.commit()
+    client = app.test_client()
+    sign_in(client, user)
+    body = client.get("/api/auth/me").get_json()
+    assert body["user"]["is_owner"] is True
+    assert {g["name"]: g["is_personal"] for g in body["groups"]} == {"Team": False,
+                                                                     "My tastings": True}
