@@ -238,8 +238,9 @@ def copy_signin_link(member_id: int):
     if email is None:
         return jsonify({"error": "no_email"}), 409
     existing = find_user(email)
-    if existing is not None and existing.is_owner:
-        # A link signs in as that person: a team admin must never reach the owner.
+    if existing is not None and existing.is_owner and member.id != admin.member_id:
+        # A link signs in as that person: a team admin must never reach the owner
+        # (an owner who is also this group's admin may copy their own row).
         return jsonify({"error": "owner_member"}), 409
     if existing is not None and db.session.execute(
             db.select(Member.id).where(Member.user_id == existing.id,

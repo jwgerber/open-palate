@@ -91,6 +91,9 @@ def remove_owner(who: str) -> None:
         db.select(func.count(User.id)).where(User.is_owner.is_(True))).scalar_one()
     if user.is_owner and owners <= 1:
         _fail("Can't remove the last owner")
+    if not user.is_owner:
+        click.echo(f"{user.email} is not an owner")
+        return
     user.is_owner = False
     db.session.commit()
     click.echo(f"{user.email} is no longer an owner")

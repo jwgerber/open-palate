@@ -61,6 +61,7 @@ def request_link():
     # Same reply whether or not the address is known: no account enumeration.
     user = find_user(email)
     if user is not None and not (current_app.config.get("ALLOW_SIGNUP")
+                                 or user.is_owner
                                  or user_has_active_member(user)
                                  or active_member_for_email(email) is not None):
         user = None   # a known user nobody has an active place for gets no link

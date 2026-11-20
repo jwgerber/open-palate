@@ -180,6 +180,7 @@ def test_install_groups_lists_names_and_counts_only(app, db_session):
     team = make_group("Roastery")
     make_member(team, "a@cafe.com")
     make_member(team, "b@cafe.com", active=False)
+    db.session.add(Member(group_id=team.id, display_name="Sample", role="member", is_sample=True))
     personal = Group(name="My tastings", is_personal=True, personal_user_id=owner.id)
     db.session.add(personal)
     db.session.commit()
@@ -215,3 +216,27 @@ def test_patch_install_rejects_bad_urls(app, db_session):
         "http://192.168.1.40:8000"
     cleared = client.patch("/api/install", json={"public_url": None}, headers=headers)
     assert cleared.get_json() == {"public_url": None, "address": "http://localhost"}
+
+
+def test_patch_install_rejects_overlong_url(app, db_session):
+    _, client, headers = owner_client(app)
+    too_long = "https://" + "a" * 250 + ".com"
+    resp = client.patch("/api/install", json={"public_url": too_long}, headers=headers)
+    assert resp.status_code == 400 and resp.get_json()["field"] == "public_url"
+    edge = "https://" + "a" * 60 + "." + "b" * 60 + "." + "c" * 60 + "." + "d" * 60 + ".com"
+    assert len(edge) <= 255
+    ok = client.patch("/api/install", json={"public_url": edge}, headers=headers)
+    assert ok.status_code == 200
+
+
+def test_patch_install_rejects_bad_hostnames(app, db_session):
+    _, client, headers = owner_client(app)
+    for bad in ("http://a b.com", "http://a_b.com", "http://a..com", "http://.a.com",
+                "http://a.com.", "http://-a.com", "http://[zz]", "http://ex%41mple.com",
+                "http://a,b.com", "http://é.com"):
+        resp = client.patch("/api/install", json={"public_url": bad}, headers=headers)
+        assert resp.status_code == 400 and resp.get_json()["field"] == "public_url", bad
+    for good in ("http://localhost:8000", "https://tasting.example.com", "http://10.0.0.5",
+                 "http://[::1]:8000", "http://My-Host.local"):
+        resp = client.patch("/api/install", json={"public_url": good}, headers=headers)
+        assert resp.status_code == 200, good

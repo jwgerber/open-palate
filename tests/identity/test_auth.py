@@ -532,3 +532,14 @@ def test_me_reports_owner_and_personal(app, db_session):
     assert body["user"]["is_owner"] is True
     assert {g["name"]: g["is_personal"] for g in body["groups"]} == {"Team": False,
                                                                      "My tastings": True}
+
+
+def test_request_link_owner_without_membership_gets_link(client, db_session, sent):
+    db_session.add(User(email="owner@cafe.com", display_name="Owner", is_owner=True))
+    db_session.commit()
+    known = request_link(client, "owner@cafe.com")
+    unknown = request_link(client, "nobody@cafe.com")
+    assert known.status_code == unknown.status_code == 200
+    assert known.get_json() == unknown.get_json() == {"status": "sent"}
+    assert [to for to, _ in sent] == ["owner@cafe.com"]
+    assert db_session.query(LoginToken).count() == 1

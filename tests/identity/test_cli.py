@@ -134,3 +134,20 @@ def test_signin_link_prints_link_changes_nothing(app, db_session):
 def test_signin_link_unknown_exits_1(app, db_session):
     assert run(app, "signin-link", "nobody@cafe.com").exit_code == 1
     assert run(app, "signin-link", "999").exit_code == 1
+
+
+def test_remove_owner_on_non_owner_changes_nothing(app, db_session):
+    owner = make_owner("a@cafe.com")
+    user, _ = make_member(make_group("Z"), "plain@cafe.com")
+    result = run(app, "remove-owner", "plain@cafe.com")
+    assert result.exit_code == 0, result.output
+    assert "plain@cafe.com is not an owner" in result.output
+    assert "no longer" not in result.output
+    assert db_session.get(User, user.id).is_owner is False
+    assert db_session.get(User, owner.id).is_owner is True
+
+
+def test_huge_numeric_ref_is_not_found(app, db_session):
+    result = run(app, "signin-link", "99999999999")
+    assert result.exit_code == 1
+    assert "No user" in result.output

@@ -12,7 +12,7 @@ from extensions import db
 from identity.address import app_address
 from identity.models import Group, LoginToken, Member, User
 from identity.tokens import new_token
-from utils import utc_now
+from utils import is_pg_int, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,8 @@ def find_user_by_ref(ref: str) -> User | None:
     """A user by id (all digits) or by email."""
     ref = ref.strip()
     if ref.isdigit():
-        return db.session.get(User, int(ref))
+        user_id = int(ref)
+        return db.session.get(User, user_id) if is_pg_int(user_id) else None
     email = normalize_email(ref)
     return find_user(email) if email else None
 

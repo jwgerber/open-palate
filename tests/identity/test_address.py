@@ -64,6 +64,13 @@ def test_secure_cookie_follows_request(app, database_url):
     assert "secure" not in cookie_attrs(plain, "tasting_csrf")
 
 
+def test_cookie_attributes(app, database_url):
+    resp = _consume(_app(database_url))
+    session, csrf_cookie = cookie_attrs(resp, "tasting_session"), cookie_attrs(resp, "tasting_csrf")
+    assert "httponly" in session and "httponly" not in csrf_cookie
+    assert "samesite=lax" in session and "samesite=lax" in csrf_cookie
+
+
 def test_secure_cookie_with_https_scheme(app, database_url):
     resp = _consume(_app(database_url), environ_overrides={"wsgi.url_scheme": "https"})
     assert "secure" in cookie_attrs(resp, "tasting_session")

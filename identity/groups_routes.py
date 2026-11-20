@@ -1,4 +1,6 @@
 """/api/groups and /api/install: teams, personal spaces and the owner's install settings."""
+import ipaddress
+import re
 from urllib.parse import urlparse
 
 from flask import Blueprint, jsonify
@@ -108,6 +110,23 @@ def get_install():
     return jsonify(_install_dict())
 
 
+PUBLIC_URL_MAX = 255   # the install_settings.public_url column length
+_DNS_NAME = re.compile(r"^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$")
+
+
+def _is_valid_host(host: str | None) -> bool:
+    """A DNS-style name (non-empty labels), an IPv4 address or an IPv6 address."""
+    if not host:
+        return False
+    try:
+        ipaddress.ip_address(host)   # urlparse strips the brackets from IPv6
+        return True
+    except ValueError:
+        pass
+    return bool(_DNS_NAME.match(host)) and not any(
+        label.startswith("-") or label.endswith("-") for label in host.split("."))
+
+
 def _clean_public_url(value) -> str | None:
     """The URL without a trailing slash, or None when it is not a bare http(s) origin."""
     if not isinstance(value, str):
@@ -118,7 +137,8 @@ def _clean_public_url(value) -> str | None:
         parts.port  # noqa: B018  (raises ValueError on a bad port)
     except ValueError:
         return None
-    if (parts.scheme not in ("http", "https") or not host or parts.path not in ("", "/")
+    if (len(value.strip()) > PUBLIC_URL_MAX or not _is_valid_host(host)
+            or parts.scheme not in ("http", "https") or parts.path not in ("", "/")
             or parts.params or parts.query or parts.fragment or "?" in value or "#" in value
             or parts.username or parts.password):
         return None
@@ -153,7 +173,8 @@ def install_groups():
     if (denied := _owner_only()) is not None:
         return denied
     count = (db.select(func.count(Member.id))
-             .where(Member.group_id == Group.id, Member.active.is_(True))
+             .where(Member.group_id == Group.id, Member.active.is_(True),
+                    Member.is_sample.is_(False))
              .scalar_subquery())
     rows = db.session.execute(
         db.select(Group.id, Group.name, count).where(Group.is_personal.is_(False))
