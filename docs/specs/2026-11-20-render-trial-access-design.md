@@ -17,7 +17,7 @@ The owner wants a link in the GitHub README that lets someone checking out Open 
 - **The sign-in page tells the truth when email isn't set up:**
   - Members are told to ask an admin for a sign-in link.
   - Admins are told where to find their own link: Render logs, search "Sign-in link for".
-- **The visitor can choose a setup password at deploy time.** It's optional; the 15-minute log link still works.
+- **The visitor creates the first admin with a setup password that Render generates.** They copy it from the service's Environment page. It never expires, unlike the 15-minute log link, which stays as a fallback.
 - **The README explains getting started and getting back in** for a Render trial.
 
 ## Non-goals
@@ -55,9 +55,10 @@ My calls (the owner can override):
 - **`BASE_URL` fallback:** when `BASE_URL` is unset, the app uses `RENDER_EXTERNAL_URL` if present, before the `http://localhost:8000` default. `render.yaml` (free) stops asking for `BASE_URL`; a custom domain can still set it. The paid `render.paid.yaml` keeps its prompt, since paid deploys often use custom domains.
 - **How the page knows email is off:** `GET /api/auth/setup-status` adds `"email": true|false` (true when `SMTP_HOST` is set) to every reply. The endpoint is public and already called before sign-in. Saying whether email is set up reveals nothing about accounts.
 - **Sign-in page when email is off:** the form and the reply stay the same (request-link still logs the link, so admins can get one). The intro line and the post-submit message change. Exact copy:
-  - Intro: "This copy of Open Palate can't send email. Ask an admin for a sign-in link."
-  - After submitting: "If that address is on the list, a sign-in link was written to the server log (Render: Logs, search for "Sign-in link for"). It works once and expires in 15 minutes. Staff: ask an admin to copy a sign-in link for you from Group settings."
-- **Setup password:** `render.yaml` (free) declares `SETUP_PASSWORD` with `sync: false`, so Render asks for it at deploy. Leaving it blank keeps the log-link route, because an empty value is treated as unset (`config.py` already does `or None`).
+  - Intro: "This copy of Open Palate can't send email. Staff: ask an admin to copy a sign-in link for you. Admins and editors: your link goes to the server log."
+  - After submitting: "If that address is on the list, a sign-in link was written to the server log (on Render: Logs, search for "Sign-in link for"). It works once and expires in 15 minutes."
+  - Why this wording: Copy sign-in link works for members only (managers are blocked, a non-goal here), so the page must not send admins or editors to it.
+- **Setup password:** `render.yaml` (free) declares `SETUP_PASSWORD` with `generateValue: true`. Render makes a random value that the visitor copies from the service's Environment page into the setup page. This avoids a prompt that Render might not allow to stay blank, and it doesn't expire while the service sleeps. Setup closes once an admin exists, so the password is useless afterwards. The log link still works too.
 - **Files:**
   - `render.free.yaml` is renamed to `render.yaml`.
   - The old `render.yaml` becomes `render.paid.yaml`.
@@ -76,14 +77,18 @@ My calls (the owner can override):
   - Update the header comment in each to say which is which and how to choose a Blueprint Path.
 - **README:**
   - The Deploy to Render section, with the button and the public-repo note.
-  - The trial steps: click, optionally set a setup password, open the setup link or use the password.
-  - A "Getting back in" note.
-  - The paid deploy now points at `render.paid.yaml`.
+  - The trial steps: click the button, wait for the build, copy `SETUP_PASSWORD` from the service's Environment page, open the app and create the first admin.
+  - A "Getting back in" note: members ask an admin for a copied link; admins and editors request a link on the sign-in page and read it from Render's Logs, which only the person who deployed can see. So a second admin or editor depends on that person.
+  - The paid deploy now points at `render.paid.yaml`, with a one-line note: a Blueprint created from the old `render.yaml` must set its Blueprint Path to `render.paid.yaml`. Only the owner's private repo has existed, so no one else is affected.
   - The `BASE_URL` row in the env table mentions the Render fallback.
 - **Tests:**
   - Config: `RENDER_EXTERNAL_URL` is used when `BASE_URL` is unset, and `BASE_URL` wins when both are set.
   - Route: `setup-status` includes `email` both before and after setup.
   - Frontend: the sign-in page shows the email-off intro and post-submit copy when `email` is false, and today's copy when it is true.
+
+More of my calls, from the builder check:
+- **Log levels:** when `RENDER_EXTERNAL_URL` is used, log at INFO ("BASE_URL is not set; using RENDER_EXTERNAL_URL ..."). Keep today's WARNING only for the `http://localhost:8000` fallback.
+- **Other docs:** `CLAUDE.md` line 7 and `docs/spec.md` say `render.yaml` is the (paid) blueprint. Update both to name the two files.
 
 ## Left to the builder
 
@@ -95,5 +100,5 @@ My calls (the owner can override):
 - [ ] Third-party config: in Render, change the `open-palate-trial` Blueprint's Blueprint Path from `render.free.yaml` to `render.yaml` before merging.
 - [ ] Migration: none.
 - [ ] Env vars: none required. The existing trial keeps its `BASE_URL`, which still wins over the fallback.
-- [ ] Smoke: after merge, the trial redeploys from `render.yaml`. `/healthz` is OK, and the sign-in page shows the email-off copy. Once the repo is public, click the README button from a logged-out browser and confirm Render offers the trial plan.
-- [ ] Docs: README (Render sections and env table), and the CLAUDE.md commands section if it mentions `render.yaml`.
+- [ ] Smoke: after merge, the trial redeploys from `render.yaml`. `/healthz` is OK, and the sign-in page shows the email-off copy. The existing trial gets a generated `SETUP_PASSWORD` too, which is harmless because it already has an admin. Once the repo is public, click the README button from a logged-out browser and confirm Render offers the trial plan.
+- [ ] Docs: README (Render sections and env table), CLAUDE.md line 7, `docs/spec.md`.
