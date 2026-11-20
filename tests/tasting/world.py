@@ -63,12 +63,14 @@ class World:
     def user_id(self, who):
         return self.members[who][0].id
 
-    def get(self, who, path, **kw):
-        return self.clients[who].get(BASE + path, **kw)
+    def get(self, who, path, headers=None, **kw):
+        """``headers`` (e.g. ``X-Group``) are merged into the request."""
+        return self.clients[who].get(BASE + path, headers=headers or {}, **kw)
 
-    def send(self, who, method, path, **kw):
-        headers = {**self.headers[who], **kw.pop("headers", {})}
-        return getattr(self.clients[who], method)(BASE + path, headers=headers, **kw)
+    def send(self, who, method, path, headers=None, **kw):
+        """A write with the session's CSRF header, plus any ``headers`` given."""
+        merged = {**self.headers[who], **(headers or {})}
+        return getattr(self.clients[who], method)(BASE + path, headers=merged, **kw)
 
     def coffee(self, group=None, **kw):
         coffee = make_coffee(db.session, group or self.group, **kw)
