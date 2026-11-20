@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "required": ["version", "key_separator", "tree", "families", "defects", "preps", "kinds", "processes", "roasts"],
   "properties": {
-    "version": {"const": 1},
+    "version": {"const": 2},
     "key_separator": {"type": "string", "minLength": 1, "maxLength": 1},
     "tree": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/topNode"}},
     "families": {

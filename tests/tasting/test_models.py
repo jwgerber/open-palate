@@ -49,14 +49,14 @@ class TestRoundTrip:
         a, b = make_coffee(db_session, group, name="A"), make_coffee(db_session, group, name="B")
         f = make_flight(db_session, group, [b, a])
         t = make_tasting(db_session, f, b, acidity=3,
-                         tags=[TastingTag(term="Fruity>Berry>blueberry", strength=3)],
+                         tags=[TastingTag(term="Fruit>Berry>blueberry", strength=3)],
                          defects=[TastingDefect(term="papery")])
         db_session.commit()
         fetched = db_session.get(TastingFlight, f.id)
         assert [(fc.coffee.name, fc.position) for fc in fetched.coffees] == [("B", 1), ("A", 2)]
         assert fetched.is_open is True and fetched.is_shared is False and fetched.is_blind is False
         assert fetched.is_open_link is False and fetched.created_via == "account"
-        assert {tag.term: tag.strength for tag in t.tags} == {"Fruity>Berry>blueberry": 3}
+        assert {tag.term: tag.strength for tag in t.tags} == {"Fruit>Berry>blueberry": 3}
         assert [d.term for d in t.defects] == ["papery"]
         assert t.vals() == {"acidity": 3, "sweetness": None, "body": None, "balance": None, "overall": 4}
 
@@ -119,7 +119,7 @@ class TestChecks:
         c = make_coffee(db_session, group)
         f = make_flight(db_session, group, [c])
         with pytest.raises(IntegrityError):
-            make_tasting(db_session, f, c, tags=[TastingTag(term="Fruity", strength=1)])
+            make_tasting(db_session, f, c, tags=[TastingTag(term="Fruit", strength=1)])
         db_session.rollback()
 
     def test_one_read_per_taster_per_cup(self, db_session, group):
@@ -146,7 +146,7 @@ class TestCascades:
                                     TastingTag)
         c = make_coffee(db_session, group)
         f = make_flight(db_session, group, [c])
-        make_tasting(db_session, f, c, tags=[TastingTag(term="Fruity", strength=2)],
+        make_tasting(db_session, f, c, tags=[TastingTag(term="Fruit", strength=2)],
                      defects=[TastingDefect(term="musty")])
         db_session.commit()
         db_session.delete(db_session.get(TastingFlight, f.id))

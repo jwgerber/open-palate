@@ -291,3 +291,10 @@ def test_refusal_raises_unreadable(ctx):
 def test_bad_json_raises_unreadable(ctx):
     with pytest.raises(ScanUnreadable):
         _read(_client(_message("not json")))
+
+
+def test_scan_label_lookup_new_wheel():
+    """A printed 'Cherry' lands on the 2020 wheel's Stone Fruit; old-wheel words don't match."""
+    assert tasting_scan._LABEL_TO_KEY["cherry"] == "Fruit>Stone Fruit>cherry"
+    assert tasting_scan._LABEL_TO_KEY["licorice / anise"] == "Spice>licorice / anise"
+    assert "butyric acid" not in tasting_scan._LABEL_TO_KEY

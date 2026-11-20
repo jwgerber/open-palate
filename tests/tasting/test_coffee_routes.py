@@ -173,7 +173,7 @@ class TestCoffees:
         for role, overall in (("member", 4), ("editor", 5), ("admin", 3)):
             t = world.read(flight, guji, role, overall=overall)
             from tasting.models import TastingTag
-            t.tags.append(TastingTag(term="Fruity>Berry>blueberry", strength=3))
+            t.tags.append(TastingTag(term="Fruit>Berry>blueberry", strength=3))
         db.session.commit()
         row = next(c for c in world.get("member", "/coffees").get_json()["coffees"] if c["id"] == guji.id)
         assert row["n"] == 3 and row["avg_overall"] == 4.0 and row["spread"] == 0.8
@@ -199,14 +199,14 @@ class TestCoffees:
         flight = make_flight(db.session, world.group, [guji], is_open=False, is_shared=True)
         t = world.read(flight, guji, "member", overall=5, acidity=4)
         from tasting.models import TastingTag
-        t.tags.append(TastingTag(term="Fruity>Citrus>lemon", strength=2))
+        t.tags.append(TastingTag(term="Fruit>Citrus>lemon", strength=2))
         db.session.commit()
         d = world.get("editor", f"/coffees/{guji.id}").get_json()
         assert d["n"] == 1 and d["consensus"] is None and "tastings" not in d and d["yours"] is None
         # One's own read is always visible to oneself, threshold or not.
         mine = world.get("member", f"/coffees/{guji.id}").get_json()["yours"]
         assert mine["overall"] == 5 and mine["acidity"] == 4 and mine["sweetness"] is None
-        assert mine["tags"] == {"Fruity>Citrus>lemon": 2} and mine["sentence"] == "Notes of lemon."
+        assert mine["tags"] == {"Fruit>Citrus>lemon": 2} and mine["sentence"] == "Notes of lemon."
         assert mine["reads"] == 1
         for role in ("editor", "admin"):
             world.read(flight, guji, role, overall=3, acidity=2)
@@ -275,7 +275,7 @@ class TestOpenFlightsStayDark:
                              is_open=True, opened_at=now, closes_at=now + datetime.timedelta(hours=24))
         for role, overall in (("member", 5), ("editor", 4), ("admin", 3)):
             t = world.read(flight, guji, role, overall=overall)
-            t.tags.append(TastingTag(term="Fruity>Berry>blueberry", strength=3))
+            t.tags.append(TastingTag(term="Fruit>Berry>blueberry", strength=3))
         db.session.commit()
         assert self._snapshot(world, guji) == before
         assert world.get("member", "/coffees/match?q=guji").get_json()["match"]["n"] == 0
@@ -317,7 +317,7 @@ class TestContent:
         assert r.status_code == 200
         body = r.get_json()
         assert set(body) == {"lexicon", "forms"}
-        assert body["lexicon"]["tree"][0]["label"] == "Fruity"
+        assert body["lexicon"]["tree"][0]["label"] == "Fruit"
         etag = r.headers["ETag"]
         again = world.clients["member"].get("/api/content", headers={"If-None-Match": etag})
         assert again.status_code == 304

@@ -7,8 +7,8 @@ the two sheets) are read once at startup. Scoring rules do NOT live here: the
 are column domains, kept in code (``tasting.enums``).
 
 Term keys. A tag is stored as the node's PATH joined by the key separator
-(``"Fruity>Berry>blueberry"``), never the bare label: the wheel repeats labels
-at different depths (``Floral > Floral``) and lets a taster pick a heading.
+(``"Fruit>Berry>blueberry"``), never the bare label, so a key says where on the
+wheel a note sits, and a taster can pick a heading (``"Fruit>Citrus"``) as is.
 """
 import hashlib
 import json

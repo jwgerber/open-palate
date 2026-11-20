@@ -43,10 +43,10 @@ class TestSoloFlights:
         bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g, overall=6)]}, "overall")
         bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g, acidity=0)]}, "acidity")
         bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g, tags={"blueberry": 2})]}, "entries")
-        bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g, tags={"Fruity": 1})]}, "entries")
-        six = {k: 2 for k in ("Fruity", "Floral", "Sweet", "Spices", "Roasted", "Other")}
+        bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g, tags={"Fruit": 1})]}, "entries")
+        six = {k: 2 for k in ("Fruit", "Floral", "Sweet & Sugary", "Spice", "Roast", "Savory")}
         bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g, tags=six)]}, "entries")
-        both = {"Fruity": 2, "Fruity>Berry>blueberry": 3}
+        both = {"Fruit": 2, "Fruit>Berry>blueberry": 3}
         bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g, tags=both)]}, "entries")
         bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g, defects=["burnt"])]}, "entries")
         bad({"coffee_ids": [g], "prep": "drip", "entries": [entry(g)], "blind": True}, "blind")
@@ -64,8 +64,8 @@ class TestSoloFlights:
     def test_logs_and_closes_in_one_write(self, world, cs, db_session):
         g, w = cs["guji"].id, cs["winter"].id
         r = world.solo([cs["winter"], cs["guji"]], prep="cupping", entries=[
-            entry(w, 3, sweetness=4, tags={"Sweet>Brown sugar>caramelized": 3}),
-            entry(g, 5, tags={"Fruity>Berry>blueberry": 3, "Floral": 2}, note="wow", defects=["papery"])])
+            entry(w, 3, sweetness=4, tags={"Sweet & Sugary>caramel": 3}),
+            entry(g, 5, tags={"Fruit>Berry>blueberry": 3, "Floral": 2}, note="wow", defects=["papery"])])
         assert r.status_code == 201, r.get_json()
         body = r.get_json()
         assert body["is_open"] is False and body["is_shared"] is False
@@ -123,7 +123,7 @@ class TestSharedFlights:
         world.person("joiner", name="Sam")
         f = world.get("joiner", f"/flights/{fid}").get_json()
         assert f["is_host"] is False and f["cups"][0]["label"] == "Cup A"
-        r = world.log(fid, [{"position": 1, "overall": 4, "tags": {"Fruity>Berry>blueberry": 3}},
+        r = world.log(fid, [{"position": 1, "overall": 4, "tags": {"Fruit>Berry>blueberry": 3}},
                             {"position": 2, "overall": 2}], who="joiner")
         assert r.status_code == 201 and r.get_json()["you_logged"] and r.get_json()["logged_count"] == 1
         r = world.log(fid, [entry(cs["lot"].id), entry(cs["guji"].id)], who="joiner")
@@ -134,15 +134,15 @@ class TestSharedFlights:
         f = world.get("member", f"/flights/{fid}").get_json()
         assert f["cups"][0]["label"] == "Cup A"                     # the host is blind too
         assert [(x["name"], x["status"]) for x in f["roster"]] == [("Member", "tasting"), ("Sam", "logged")]
-        assert world.log(fid, [entry(cs["lot"].id, 5, tags={"Fruity>Berry>blueberry": 2}),
+        assert world.log(fid, [entry(cs["lot"].id, 5, tags={"Fruit>Berry>blueberry": 2}),
                                entry(cs["guji"].id, 3)]).status_code == 201
         r = world.close(fid)
         assert r.status_code == 200 and r.get_json()["is_open"] is False
         assert [c["label"] for c in r.get_json()["cups"]] == ["Huila Lot 3", "Guji Shakiso"]
         cups = world.get("member", f"/flights/{fid}/reveal").get_json()["cups"]
         assert cups[0]["n"] == 2 and cups[0]["consensus"] is None and cups[0]["yours"]["overall"] == 5
-        assert cups[0]["descriptors"] == [{"term": "Fruity>Berry>blueberry", "label": "blueberry",
-                                           "family": "fruity", "kind": "yours", "pct": None}]
+        assert cups[0]["descriptors"] == [{"term": "Fruit>Berry>blueberry", "label": "blueberry",
+                                           "family": "fruit", "kind": "yours", "pct": None}]
         world.person("late")
         r = world.log(fid, [entry(cs["lot"].id), entry(cs["guji"].id)], who="late")
         assert r.status_code == 409 and r.get_json()["error"] == "flight_closed"
@@ -161,7 +161,7 @@ class TestSharedFlights:
         fid = self._open(world, cs, blind=False)["id"]
         lot, guji = cs["lot"].id, cs["guji"].id
         for who in ("editor", "admin"):
-            world.log(fid, [entry(lot, 5, tags={"Fruity>Berry>blueberry": 2}), entry(guji, 4)], who=who)
+            world.log(fid, [entry(lot, 5, tags={"Fruit>Berry>blueberry": 2}), entry(guji, 4)], who=who)
         world.log(fid, [entry(lot, 2, tags={"Floral": 2}), entry(guji, 4)])
         world.close(fid)
         cups = world.get("member", f"/flights/{fid}/reveal").get_json()["cups"]
@@ -357,7 +357,7 @@ class TestPalate:
     def test_leave_one_out_bias_counts_device_reads_as_people(self, world, cs):
         g = cs["guji"]
         for who, ov in (("editor", 3), ("admin", 3), ("member", 5)):
-            world.solo([g], who=who, entries=[entry(g.id, ov, tags={"Fruity>Berry>blueberry": 2, "Floral": 2})])
+            world.solo([g], who=who, entries=[entry(g.id, ov, tags={"Fruit>Berry>blueberry": 2, "Floral": 2})])
         world.solo([cs["winter"]])
         world.solo([g], who="device", pick=world.member_id("member"), entries=[entry(g.id, 3)])
         body = world.get("member", "/palate").get_json()

@@ -36,18 +36,18 @@ FLIGHT_COFFEES = 4
 
 # READS[cup][taster] = (acidity, sweetness, body, balance, overall, flavors)
 READS = (
-    ((5, 3, 2, 4, 4, ("Floral>Floral>jasmine", "Fruity>Citrus>lemon")),
-     (4, 3, 2, 4, 5, ("Floral>Floral>jasmine", "Fruity>Citrus>orange")),
-     (5, 2, 2, 3, 4, ("Fruity>Citrus>lemon", "Sweet>Brown sugar>honey"))),
-    ((5, 4, 3, 4, 5, ("Fruity>Berry>blueberry", "Fruity>Other fruit>cherry")),
-     (5, 3, 3, 4, 4, ("Fruity>Berry>blueberry", "Sweet>Brown sugar>honey")),
-     (4, 4, 3, 5, 5, ("Fruity>Berry>blueberry", "Fruity>Other fruit>peach"))),
-    ((3, 4, 4, 4, 4, ("Sweet>Brown sugar>honey", "Fruity>Other fruit>peach")),
-     (3, 5, 4, 4, 4, ("Sweet>Brown sugar>honey", "Nutty / Cocoa>Nutty>hazelnut")),
-     (2, 4, 4, 3, 3, ("Sweet>Brown sugar>honey", "Nutty / Cocoa>Cocoa>milk chocolate"))),
-    ((2, 3, 5, 3, 3, ("Nutty / Cocoa>Cocoa>dark chocolate", "Nutty / Cocoa>Nutty>almond")),
-     (2, 3, 5, 4, 3, ("Nutty / Cocoa>Cocoa>dark chocolate", "Nutty / Cocoa>Cocoa>milk chocolate")),
-     (1, 2, 5, 3, 2, ("Nutty / Cocoa>Cocoa>dark chocolate", "Nutty / Cocoa>Nutty>hazelnut"))),
+    ((5, 3, 2, 4, 4, ("Floral>jasmine", "Fruit>Citrus>lemon")),
+     (4, 3, 2, 4, 5, ("Floral>jasmine", "Fruit>Citrus>orange")),
+     (5, 2, 2, 3, 4, ("Fruit>Citrus>lemon", "Sweet & Sugary>honey"))),
+    ((5, 4, 3, 4, 5, ("Fruit>Berry>blueberry", "Fruit>Stone Fruit>cherry")),
+     (5, 3, 3, 4, 4, ("Fruit>Berry>blueberry", "Sweet & Sugary>honey")),
+     (4, 4, 3, 5, 5, ("Fruit>Berry>blueberry", "Fruit>Stone Fruit>peach"))),
+    ((3, 4, 4, 4, 4, ("Sweet & Sugary>honey", "Fruit>Stone Fruit>peach")),
+     (3, 5, 4, 4, 4, ("Sweet & Sugary>honey", "Nut>hazelnut")),
+     (2, 4, 4, 3, 3, ("Sweet & Sugary>honey", "Chocolate>milk chocolate"))),
+    ((2, 3, 5, 3, 3, ("Chocolate>dark chocolate", "Nut>almond")),
+     (2, 3, 5, 4, 3, ("Chocolate>dark chocolate", "Chocolate>milk chocolate")),
+     (1, 2, 5, 3, 2, ("Chocolate>dark chocolate", "Nut>hazelnut"))),
 )
 
 
