@@ -72,7 +72,7 @@ docker exec --user 10001 tasting flask create-admin you@example.com
 
 Setup requests are limited to 5 a minute. Once an admin exists, setup is closed. If every admin is lost, run `flask create-admin` again to recover.
 
-Next, in the Log or Coffees tab an admin of an empty group can **load sample data** (five coffees, three sample tasters and a closed flight) to see how the app looks. Remove it in Group settings.
+Next, in the Log or Coffees tab an admin of an empty group can **load sample data** (five coffees, three sample tasters, a closed tasting and a closed cupping on the advanced sheet) to see how the app looks. Remove it in Group settings.
 
 ## The shop tablet
 

@@ -1,6 +1,6 @@
 /**
  * Pick coffees — multi-select in order (on bar · recent
- * cupping lots · somewhere else), then prep, then pour order.
+ * cupping lots · somewhere else), then the score sheet and prep, then pour order.
  *
  * The picked box shows the POUR NUMBER; un-picking renumbers the rest. Pour
  * order is reordered by press-and-drag on the handle only (dnd-kit, the
@@ -163,15 +163,15 @@ export default function PickCoffeesScreen({ draft, dispatch, coffees, error, onC
       </ButtonBase>
 
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider', mt: 2, pt: 2 }}>
-        <Eyebrow sx={{ mb: 1 }}>Prep</Eyebrow>
-        <Segments ariaLabel="Prep" dense value={draft.prep} onChange={(prep) => dispatch({ type: 'prep', prep })} options={PREP_OPTIONS} />
-        <Eyebrow sx={{ mt: 2, mb: 1 }}>Score sheet</Eyebrow>
+        <Eyebrow sx={{ mb: 1 }}>Score sheet</Eyebrow>
         <Segments ariaLabel="Score sheet" dense value={draft.sheet} onChange={(sheet) => dispatch({ type: 'sheet', sheet })} options={SHEET_OPTIONS} />
         {advanced && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             Advanced is a cupping sheet. Everyone scores on their own device, and you close the flight to see the summary.
           </Typography>
         )}
+        <Eyebrow sx={{ mt: 2, mb: 1 }}>Prep</Eyebrow>
+        <Segments ariaLabel="Prep" dense value={draft.prep} onChange={(prep) => dispatch({ type: 'prep', prep })} options={PREP_OPTIONS} />
       </Box>
 
       {n > 0 && (
