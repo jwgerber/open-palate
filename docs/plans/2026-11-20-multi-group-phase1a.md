@@ -23,11 +23,12 @@
 
 ## Review Focus
 
-1. A user in groups A and B sends `X-Group: A` with a flight id from B → 404, on every route (Task 6 sweep).
-2. A device session sends `X-Group` naming another group → 404, not a silent switch (Task 2 `test_device_header_other_group_404`).
-3. An existing single-group install upgrades and its admin keeps working with no header (Task 1 `test_upgrade_backfills_owner`, Task 2 `test_no_header_one_group_unchanged`).
-4. A personal space created before setup must not close the setup gate (Task 3 `test_personal_space_refused_while_setup_needed`).
-5. `X-Group: abc` / `X-Group: 99999999999` / empty header → 404 `group_not_found`, never a 500 (Task 2 `test_bad_header_values_404`).
+1. A team admin copies a sign-in link for a roster row carrying the owner's email → refused `owner_member` (Task 5 `test_signin_link_refuses_owner_without_membership`).
+2. A user in groups A and B sends `X-Group: A` with a flight id from B → 404, on every route (Task 6 sweep).
+3. A device session sends `X-Group` naming another group → 404, not a silent switch (Task 2 `test_device_header_other_group_404`).
+4. An existing single-group install upgrades and its admin keeps working with no header (Task 1 `test_upgrade_backfills_owner` and `test_upgraded_admin_still_works`, Task 2 `test_no_header_one_group_unchanged`).
+5. A personal space created before setup must not close the setup gate (Task 5 `test_personal_space_refused_while_setup_needed`, Task 3 `test_setup_needed_ignores_personal_groups`).
+6. `X-Group: abc` / `X-Group: 99999999999` / empty header → 404 `group_not_found`, never a 500 (Task 2 `test_bad_header_values_404`).
 
 ---
 
@@ -58,15 +59,21 @@ sa.CheckConstraint("(is_personal AND personal_user_id IS NOT NULL) OR "
 
 Owner backfill (data step in `upgrade()`): among active `admin` members of the lowest-id group with `is_personal = false`, pick the one with a `user_id`, earliest `created_at`, ties lowest `members.id`; else any active admin member with a user, same ordering, in any non-personal group. Set that user's `is_owner = true`. Print which member id was chosen (Alembic logger). None found → do nothing.
 
-`downgrade()` drops all three (use `batch_alter_table` for SQLite, as 0005 does).
+SQLite batch mode (0005 used `recreate="never"`, which can't add a CHECK):
+- `users`: `batch_alter_table("users", recreate="never")` for the `add_column`.
+- `groups`: `batch_alter_table("groups")` with the default recreate, for the column and the CHECK. (Safe: SQLite connections don't enable `PRAGMA foreign_keys`.)
+- Create `uq_groups_personal_user` with `op.create_index` **after** the `groups` batch block, never inside it, so a recreate can't drop the partial index. Same order in `downgrade()` (drop the index first).
+
+`downgrade()` drops all three.
 
 - [ ] **Step 1: Write failing tests** in `tests/test_migrations.py` (use the existing `fresh_url` fixture, both dialects):
   - `test_upgrade_backfills_owner`: upgrade to 0006, insert a group, admin A (`created_at` older), admin B, member C, all with users; upgrade to 0007 → only A's user has `is_owner`.
   - `test_owner_backfill_skips_admin_without_user`: earliest admin has `user_id NULL` → the next admin with a user is owner.
   - `test_owner_backfill_none_when_no_admin_user`: no admin with a user → no owner, upgrade succeeds.
   - `test_install_settings_row_exists`: exactly one row, `id = 1`, `public_url NULL`.
-  - `test_personal_user_unique`: two personal groups for the same user → `IntegrityError`; a non-personal group with `personal_user_id` set → `IntegrityError`.
-  - `test_0007_downgrade_roundtrip`: upgrade → downgrade to 0006 → upgrade again succeeds.
+  - `test_personal_user_unique`: two personal groups for the same user → `IntegrityError`; a non-personal group with `personal_user_id` set → `IntegrityError`; the inspector lists `uq_groups_personal_user` on both dialects.
+  - `test_0007_downgrade_roundtrip`: upgrade → downgrade to 0006 → upgrade again succeeds, and the index exists again.
+  - `test_upgraded_admin_still_works`: upgrade to 0006, seed a group, an admin user and a coffee; upgrade to head; `create_app` on that URL, sign the admin in (`tests/identity/helpers.sign_in`), `GET /api/tasting/coffees` with **no** `X-Group` → 200 listing the coffee.
 - [ ] **Step 2:** run `.venv/bin/python -m pytest tests/test_migrations.py -k "0007 or owner or install_settings or personal_user" -v` → FAIL.
 - [ ] **Step 3:** write the migration and the model fields.
 - [ ] **Step 4:** the tests above and the full suite pass on SQLite and Postgres.
@@ -82,7 +89,7 @@ Owner backfill (data step in `upgrade()`): among active `admin` members of the l
 - Consumes: Task 1 models.
 - Produces:
   - `require("signed_in")`: user sessions only; device → 403 `forbidden`; no session → 401. Builds no Actor; routes read the user with `current_user() -> User` (new, in `identity/access.py`; raises `RuntimeError` outside a `signed_in` route).
-  - `GROUP_HEADER = "X-Group"`.
+  - `GROUP_HEADER = "X-Group"`. Parse it like `_member_id_arg` in `tasting/routes.py:47-52`: `value.isascii() and value.isdigit()`, then `is_pg_int(int(value))`. "Absent" means `request.headers.get(GROUP_HEADER) is None`; an empty string is present and invalid → 404.
   - `_resolve_actor()` rules (exact codes from the spec):
     - header present, valid int, active member row for `(session.user_id, header)` → Actor for it;
     - header present but not a valid id, or no active row → 404 `group_not_found`;
@@ -117,7 +124,11 @@ Owner backfill (data step in `upgrade()`): among active `admin` members of the l
   - `ensure_admin(email, display_name)` also sets `user.is_owner = True`.
   - `find_user_by_ref(ref: str) -> User | None`: all digits → by id, else by normalized email.
 - Produces CLI (`identity/cli.py`):
-  - `flask create-admin <email|user-id> [--name]`: user id must exist (else exit 1 "No user with id N"); an email creates the user if missing. Sets `is_owner`. Only when **no non-personal group exists** does it also create the first group and an admin member row (today's `ensure_admin` path). Prints a sign-in link as today.
+  - `flask create-admin <email|user-id> [--name] [--group ID] [--owner-only]`: user id must exist (else exit 1 "No user with id N"); an email creates the user if missing. Always sets `is_owner`. It is also the **recovery path for a locked-out group** (README promise, `README.md:73`), so:
+    - no non-personal group → create the first group and an admin member row (today's `ensure_admin` path);
+    - exactly one non-personal group → make the user an active admin of it (today's behaviour);
+    - several → requires `--group ID` (make them active admin of that group) or `--owner-only`; neither → exit 1 "Several groups: pass --group ID or --owner-only".
+    Prints a sign-in link as today.
   - `flask remove-owner <email|user-id>`: clears `is_owner`; refuses (exit 1, "Can't remove the last owner") when it's the last.
   - `flask signin-link <email|user-id>`: prints a one-time sign-in link via `issue_signin_link`; changes nothing else; unknown → exit 1.
 
@@ -127,7 +138,7 @@ Owner backfill (data step in `upgrade()`): among active `admin` members of the l
   - `test_setup_needed_false_with_group_but_no_owner`: a non-personal group, no owner → not needed (upgraded install with no admin user).
   - `test_setup_needed_ignores_personal_groups`: only a personal group exists → `setup_needed()` is True.
   - `test_race_counts_owners` (monkeypatch `more_than_one_owner` → True) → 409 `setup_done`, nothing committed.
-  - `test_cli.py`: `test_create_admin_by_user_id_sets_owner_without_new_group`, `test_create_admin_unknown_id_exits_1`, `test_create_admin_empty_install_makes_first_group`, `test_remove_owner_refuses_last`, `test_remove_owner_ok_with_two`, `test_signin_link_prints_link_changes_nothing` (no member rows or flags change), `test_signin_link_unknown_exits_1`.
+  - `test_cli.py`: `test_create_admin_one_group_restores_admin` (an inactive or demoted admin becomes active admin again, and owner), `test_create_admin_many_groups_needs_group` (exit 1 without `--group`/`--owner-only`; `--group B` makes them admin of B only; `--owner-only` adds no member row), `test_create_admin_by_user_id`, `test_create_admin_unknown_id_exits_1`, `test_create_admin_empty_install_makes_first_group`, `test_remove_owner_refuses_last`, `test_remove_owner_ok_with_two`, `test_signin_link_prints_link_changes_nothing` (no member rows or flags change), `test_signin_link_unknown_exits_1`.
 - [ ] **Step 2:** run the three test files → FAIL.
 - [ ] **Step 3:** implement. Keep `test_create_admin_reuses_user_and_group` passing.
 - [ ] **Step 4:** full suite passes.
@@ -142,10 +153,12 @@ Owner backfill (data step in `upgrade()`): among active `admin` members of the l
 
 **Interfaces:**
 - Consumes: Task 1 `InstallSettings`.
-- Produces: `app_address() -> str` in `identity/address.py`: `InstallSettings.public_url` read from the database on every call, else `current_app.config["BASE_URL"]`; no trailing slash. (Start-up logging runs outside a request: it keeps using `BASE_URL` if the table can't be read, logging nothing extra.)
+- Produces:
+  - `install_settings() -> InstallSettings` in `identity/address.py`: get row 1, creating it (`public_url=None`) if missing. The test fixture wipes every table after each test (`tests/conftest.py:48-51`), and an operator could delete it too, so nothing may assume the row exists.
+  - `app_address() -> str`: `install_settings().public_url` read on every call, else `current_app.config["BASE_URL"]`; no trailing slash. (Start-up logging runs outside a request: it keeps using `BASE_URL` if the table can't be read, logging nothing extra.)
 
 - [ ] **Step 1: Write failing tests:**
-  - `test_app_address_falls_back_to_base_url`; `test_app_address_uses_public_url` (set the row to `http://192.168.1.40:8000`).
+  - `test_app_address_falls_back_to_base_url`; `test_app_address_uses_public_url` (set the row to `http://192.168.1.40:8000`); `test_app_address_with_row_deleted` (delete row 1 → falls back, row recreated).
   - `test_signin_link_uses_public_url`: `issue_signin_link` link starts with the `public_url`.
   - `test_consume_redirects_relative`: successful consume → `Location` is `/`; expired → `/signin?error=expired`. Neither contains a host.
   - `test_secure_cookie_follows_request`: `BASE_URL=https://x` but a plain-http request → session cookie has no `Secure`; `wsgi.url_scheme="https"` (or `X-Forwarded-Proto: https` with `PROXY_HOPS=1`) → `Secure`.
@@ -167,17 +180,19 @@ Owner backfill (data step in `upgrade()`): among active `admin` members of the l
 
 | Route | Access | Behaviour |
 |---|---|---|
-| `POST /api/groups` `{name, timezone}` | `signed_in` + owner | 201 `{id, name, timezone, role: "admin", is_personal: false}`; creates the group and an admin member row for the owner (display name from the user). Not owner → 403 `forbidden`. Setup needed → 409 `setup_needed`. Name 1–120 chars, timezone valid (reuse the zoneinfo check from `admin_routes.py`) → else 400 with `field`. |
+| `POST /api/groups` `{name, timezone}` | `signed_in` + owner | 201 `{id, name, timezone, role: "admin", is_personal: false}`; creates the group and an admin member row for the owner (display name from the user). Checks in this order: setup needed → 409 `setup_needed`; not owner → 403 `forbidden`; name 1–120 chars → else 400 with `field: "name"`; timezone → reuse the zoneinfo check in `admin_routes.py` and its answer (422 `bad_timezone`). |
 | `POST /api/groups/personal` | `signed_in` | 201 with the new group, or 200 with the existing one. `is_personal=true`, `personal_user_id=user.id`, name "My tastings", timezone of the user's first group or `UTC`; one admin member row. Concurrent second insert hits the unique index → return the existing group (catch `IntegrityError` in a nested transaction). Setup needed → 409. |
 | `GET /api/install` | `signed_in` + owner | `{public_url, address}` (`address` = `app_address()`). |
 | `PATCH /api/install` `{public_url}` | `signed_in` + owner | `null` clears; otherwise must parse as `http`/`https` with a host and no path, query or fragment → else 400 `{"error": ..., "field": "public_url"}`; stored without trailing slash. |
 | `GET /api/install/groups` | `signed_in` + owner | `[{id, name, member_count}]` for non-personal groups, active members only. Nothing else about any group. |
 
 - `/api/auth/me` keeps its own session handling (no `require`, since it also answers devices): adds `"is_owner"` to `user` and `"is_personal"` to each group; the device branch is unchanged.
+- **Owner can't be reached through a team's sign-in link**: `copy_signin_link` (`identity/admin_routes.py:193-234`) refuses with 409 `owner_member` when the email's existing user has `is_owner`, checked before `link_roster_members`. Without this, a team admin could add the owner's email to their roster, copy a link, sign in as owner and repoint `public_url`.
 - In a personal space, these return 404 `not_found`: every `/api/group/members*` route, `/api/group/device-codes*`, `/api/group/sample-data`, and `POST /api/device/enter` for codes of a personal group (none can exist, but guard it).
 
 - [ ] **Step 1: Write failing tests** in `tests/identity/test_groups.py`:
-  - `test_owner_makes_team_and_is_admin`; `test_non_owner_cannot_make_team_403`; `test_make_team_refused_while_setup_needed_409`; `test_make_team_validates_name_and_timezone`.
+  - `test_owner_makes_team_and_is_admin`; `test_non_owner_cannot_make_team_403`; `test_make_team_refused_while_setup_needed_409` (a non-owner user, no owner and no team exist → 409 before 403); `test_make_team_validates_name_and_timezone` (bad name 400, bad timezone 422 `bad_timezone`).
+  - `test_signin_link_refuses_owner_without_membership` (in `tests/identity/test_signin_link_copy.py`): owner with no member rows; team admin adds a roster row with the owner's email and calls `POST /api/group/members/<id>/signin-link` → 409 `owner_member`, and the row stays unlinked.
   - `test_personal_space_created_once` (second call 200, same id); `test_personal_space_refused_while_setup_needed`; `test_personal_space_works_with_no_groups`.
   - `test_personal_space_has_no_roster_or_codes`: with `X-Group: <personal>` → 404 on `GET /api/group/members`, `POST /api/group/device-codes`, `POST /api/group/sample-data`.
   - `test_owner_routes_refuse_non_owner_403` and `test_owner_routes_refuse_device_403`.
@@ -199,16 +214,20 @@ Owner backfill (data step in `upgrade()`): among active `admin` members of the l
 **Interfaces:**
 - Consumes: Tasks 2 and 5.
 
-Build two groups. Group B gets: a coffee, an open blind advanced flight with two coffees and one tasting, a closed flight with a tasting, a member, a device code. User U is an **admin of A** and an **admin of B**; a second user V is admin of A only. A device session is bound to A.
+**Setup.** Two groups, A and B, each with: a coffee, an open blind advanced flight (two coffees, one tasting), a closed flight with a tasting, a roster member, a device code. B's coffee name, member name and flight name are unique **sentinel strings** (e.g. `SENTINEL-B-coffee`). User U is admin of A and admin of B; user V is admin of A only. A device session is bound to A. Enable scan in the sweep's app config (`ANTHROPIC_API_KEY="test"`, reader monkeypatched) so `paper/scan` can't 404 early (`tasting/paper_routes.py:161`). Extend `tests/tasting/world.py` `World.get`/`post`/etc. with an optional `headers` argument merged into the request, for `X-Group`.
 
-- [ ] **Step 1: Write the sweep:**
-  - Enumerate `app.url_map` rules under `/api/tasting`, `/api/group`, `/api/device` with at least one `<int:...>` argument. Fill each argument with the matching id from **B** (map by argument name: `flight_id`, `coffee_id`, `member_id`, `code_id`, `tasting_id`; an unknown name fails the test with the rule printed, so new routes can't slip past).
-  - For every method on the rule (skip `HEAD`/`OPTIONS`): call as V with `X-Group: A`, as U with `X-Group: A`, and as the device → status must be **404** (never 2xx, never 403). Send `{}` JSON with CSRF for writes.
-  - `test_sweep_covers_routes`: the enumerated list is non-empty and includes the label-key, reveal and tasting-entry routes by endpoint name.
-  - `test_blind_open_flight_from_other_group`: U with `X-Group: A` asks for B's open blind flight's summary and label key → 404, and the body contains no coffee name from B.
-- [ ] **Step 2:** run `.venv/bin/python -m pytest tests/test_cross_group.py -v`. Any non-404 is a real leak: fix the route by adding the `actor.group_id` filter, with a focused regression test beside the route's existing tests.
+**Route classification.** Enumerate every `app.url_map` rule under `/api/`. Each endpoint must be in exactly one list in the test file: `GROUP_ROUTES` (group-scoped; swept), `SIGNED_IN_ROUTES`, `PUBLIC_ROUTES`, or `DEVICE_ENTRY_ROUTES`. An unclassified endpoint fails `test_every_api_route_is_classified` with its name, so future routes (wine, `/api/groups`, `/api/install`) can't slip past.
+
+- [ ] **Step 1: Write the tests:**
+  - `test_every_api_route_is_classified`.
+  - `test_id_routes_positive_control`: for each `GROUP_ROUTES` rule with `<int:...>` arguments, fill ids from **B** by argument name (`flight_id`, `coffee_id`, `member_id`, `code_id`; unknown name → fail with the rule printed). Call as U with `X-Group: B` → must **not** be 404 (proves the ids and call reach their target). Bodies: a minimal valid body per endpoint (table in the test file, keyed by endpoint name, e.g. `tasting.log_tastings`); unknown write endpoint → fail.
+  - `test_id_routes_cross_group_404`: the same calls as V with `X-Group: A` and as U with `X-Group: A` → **404**. As the device: **404**, except where the same call with **A's** own ids also returns 403 `forbidden` (the level check runs first, e.g. `require("self")`/`("manage")`/`("admin")` routes); then 403 is accepted.
+  - `test_list_routes_show_no_sentinel`: every GET in `GROUP_ROUTES` (with and without ids), as V (`X-Group: A`), U (`X-Group: A`) and the device → status not 5xx, and no B sentinel string anywhere in the body. Covers `/coffees`, `/coffees/match`, `/coffees/export.csv`, `/flights/recent`, `/palate`, `/group`, `/group/members`, `/group/device-codes`, `/device/members`.
+  - `test_body_and_query_ids_from_other_group`: with otherwise-valid requests acting in A, pass B's ids in: device `?member_id=` (`actor_for_pick`), `coffee_ids` in `POST /flights` and in the cups `PUT`, `taster_member_id` in paper entry, body `member_id` on tasting entry, close and timer → each answers 404 or 400 naming the id field, never 2xx.
+  - `test_group_b_unchanged`: after all the above, B's flights' `is_open`/`closed_at`, tasting count, coffee `archived_at`, member `role`/`active`, device code `revoked_at` equal their values before the sweep.
+- [ ] **Step 2:** run `.venv/bin/python -m pytest tests/test_cross_group.py -v`. Any failure of the cross-group tests is a real leak: fix the route by adding the `actor.group_id` filter, with a focused regression test beside the route's existing tests. A positive-control failure means the test's ids or bodies are wrong: fix the test, not the route.
 - [ ] **Step 3:** full suite passes on SQLite and Postgres.
-- [ ] **Step 4: Commit** `Cross-group sweep over every id route`.
+- [ ] **Step 4: Commit** `Cross-group sweep: every API route classified, ids, lists, bodies`.
 
 ### Task 7: Docs
 
@@ -223,5 +242,6 @@ Build two groups. Group B gets: a coffee, an open blind advanced flight with two
 - [ ] Migration: `0007` — runs on start via `start.sh`. Check a fresh SQLite install, a copy of a real 0006 database (owner backfilled, admin still signs in with no header), and Postgres.
 - [ ] Env vars: none new.
 - [ ] Third-party config: none.
-- [ ] Smoke (local, browser, unchanged frontend): start on an upgraded 0006 database → sign in as the admin → coffees, a blind flight, reveal and palate all work exactly as before (no `X-Group` sent). Then `curl` with the session cookie: `POST /api/groups/personal` → 201; `GET /api/auth/me` → two groups; any `/api/tasting/...` call with no header → 400 `group_required`. **Expected:** the 1a frontend breaks for users with two groups until 1b ships, so don't make personal spaces on a real install until 1b is merged.
+- [ ] Smoke (local, browser, unchanged frontend), **on a copy of the database** (groups can't be deleted, and a second group breaks today's frontend for that person): start on an upgraded copy of a 0006 database → sign in as the admin → coffees, a blind flight, reveal and palate all work exactly as before (no `X-Group` sent). Then `curl` with the session cookie: `POST /api/groups/personal` → 201; `GET /api/auth/me` → two groups; any `/api/tasting/...` call with no header → 400 `group_required`. Throw the copy away.
+- [ ] Release: **don't cut a `v*` tag from 1a alone.** Ship 1a and 1b in the same release; until then 1a lives on `main` only.
 - [ ] Docs: README and CLAUDE.md (Task 7); update memory `project-status.md` with phase 1a status.
