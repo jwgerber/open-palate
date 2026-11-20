@@ -18,6 +18,7 @@ class User(db.Model):
     display_name = db.Column(db.String(120), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     last_login_at = db.Column(db.DateTime)
+    is_owner = db.Column(db.Boolean, nullable=False, default=False, server_default=sa.false())
 
     @validates("email")
     def _normalize_email(self, _key, value: str) -> str:
@@ -26,12 +27,32 @@ class User(db.Model):
 
 class Group(db.Model):
     __tablename__ = "groups"
+    __table_args__ = (
+        sa.CheckConstraint(
+            "(is_personal AND personal_user_id IS NOT NULL) OR "
+            "(NOT is_personal AND personal_user_id IS NULL)",
+            name="ck_groups_personal_user"),
+        sa.Index("uq_groups_personal_user", "personal_user_id", unique=True,
+                 sqlite_where=sa.text("personal_user_id IS NOT NULL"),
+                 postgresql_where=sa.text("personal_user_id IS NOT NULL")),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     timezone = db.Column(db.String(64), nullable=False, default="UTC", server_default="UTC")
     is_personal = db.Column(db.Boolean, nullable=False, default=False, server_default=sa.false())
+    # The one user a personal group belongs to; null for shared groups.
+    personal_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+
+class InstallSettings(db.Model):
+    """One row (id 1): settings for the whole install."""
+    __tablename__ = "install_settings"
+    __table_args__ = (sa.CheckConstraint("id = 1", name="ck_install_settings_singleton"),)
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=False, default=1)
+    public_url = db.Column(db.String(255))
 
 
 class Member(db.Model):
