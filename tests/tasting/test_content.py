@@ -230,3 +230,17 @@ def test_no_shop_or_brand_strings_anywhere():
         if ABBREVIATION.search(text):
             offenders.append((rel, "abbreviation"))
     assert offenders == []
+
+
+class TestAttribution:
+    """The wheel's publisher asks for credit wherever the wheel is shown, so the
+    credit travels with the notes in the content file and the app displays it."""
+
+    def test_lexicon_carries_a_credit_line_and_link(self, lex):
+        credit = lex.lexicon["attribution"]
+        assert "Taster's Flavor Wheel (2020)" in credit["text"]
+        assert "own colors and layout" in credit["text"]
+        assert credit["url"].startswith("https://")
+
+    def test_credit_reaches_the_client(self, lex):
+        assert lex.to_json()["lexicon"]["attribution"] == lex.lexicon["attribution"]

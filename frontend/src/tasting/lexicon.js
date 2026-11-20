@@ -8,10 +8,10 @@
  * `tags` everywhere is `{ [key]: 2 | 3 }` — 2 picked, 3 strong.
  */
 import {
-  KEY_SEP, FAMILY_HEX, FAMILY_TINT, MAX_TAGS_PER_CUP, SCALE_WORDS, INDEX, ROOT_KEYS, ALL_TERMS,
+  KEY_SEP, FAMILY_HEX, FAMILY_TINT, MAX_TAGS_PER_CUP, SCALE_WORDS, INDEX, ROOT_KEYS, ALL_TERMS, ATTRIBUTION,
 } from './content';
 
-export { KEY_SEP, FAMILY_HEX, FAMILY_TINT, MAX_TAGS_PER_CUP, SCALE_WORDS, INDEX, ROOT_KEYS, ALL_TERMS };
+export { KEY_SEP, FAMILY_HEX, FAMILY_TINT, MAX_TAGS_PER_CUP, SCALE_WORDS, INDEX, ROOT_KEYS, ALL_TERMS, ATTRIBUTION };
 
 export const keyOf = (path) => path.join(KEY_SEP);
 export const labelOf = (key) => key.split(KEY_SEP).pop();

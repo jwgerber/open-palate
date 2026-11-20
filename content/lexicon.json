@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "attribution": {
+    "text": "Flavor notes from the Counter Culture Coffee Taster's Flavor Wheel (2020), shown in Open Palate's own colors and layout.",
+    "url": "https://counterculturecoffee.com/tasterswheel"
+  },
   "key_separator": ">",
   "tree": [
     {

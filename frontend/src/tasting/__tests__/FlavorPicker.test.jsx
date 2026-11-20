@@ -73,6 +73,15 @@ describe('FlavorWheel', () => {
 });
 
 describe('FlavorPicker', () => {
+  it('credits the wheel under the picker, with a link that opens in a new tab', () => {
+    render(<FlavorPicker coffeeLabel="Guji" tags={{}} onCycle={() => {}} onRemove={() => {}} path={[]} onPath={() => {}} />);
+    expect(screen.getByText(/Taster's Flavor Wheel \(2020\), shown in Open Palate's own colors and layout\./)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /about the wheel/i });
+    expect(link).toHaveAttribute('href', 'https://counterculturecoffee.com/tasterswheel');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
   it('shows the tray grouped by family with the sentence, removes, and jumps the wheel', () => {
     const onRemove = vi.fn();
     const onPath = vi.fn();

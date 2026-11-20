@@ -3,9 +3,18 @@
   "title": "Lexicon",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "key_separator", "tree", "families", "defects", "preps", "kinds", "processes", "roasts"],
+  "required": ["version", "attribution", "key_separator", "tree", "families", "defects", "preps", "kinds", "processes", "roasts"],
   "properties": {
     "version": {"const": 2},
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "url"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "pattern": "^https://"}
+      }
+    },
     "key_separator": {"type": "string", "minLength": 1, "maxLength": 1},
     "tree": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/topNode"}},
     "families": {
