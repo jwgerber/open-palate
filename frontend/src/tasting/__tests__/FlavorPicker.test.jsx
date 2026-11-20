@@ -7,6 +7,24 @@ import FlavorPicker from '../entry/FlavorPicker';
 const B = 'Fruit>Berry>blueberry';
 
 describe('FlavorWheel', () => {
+  it('shows a ring with more than 12 notes as a list of tap targets', () => {
+    const onPath = vi.fn();
+    const onCycle = vi.fn();
+    const V = 'Vegetal / Earthy / Herb';
+    render(<FlavorWheel path={[V]} tags={{ [`${V}>soil`]: 2 }} onPath={onPath} onCycle={onCycle} />);
+    const list = screen.getByTestId('flavor-list');
+    expect(within(list).getAllByTestId(/^wedge-/)).toHaveLength(22);
+    expect(within(list).getByRole('button', { name: 'soil, picked' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(list).getByRole('button', { name: 'cedar' }));
+    expect(onCycle).toHaveBeenCalledWith(`${V}>cedar`);
+  });
+
+  it('keeps wedges for rings of 12 or fewer', () => {
+    render(<FlavorWheel path={['Fruit']} tags={{}} onPath={() => {}} onCycle={() => {}} />);
+    expect(screen.queryByTestId('flavor-list')).toBeNull();
+    expect(screen.getAllByTestId(/^wedge-/)).toHaveLength(8);
+  });
+
   it('arc geometry closes a wedge and anchors its label mid-wedge', () => {
     const g = arc(0, 4);
     expect(g.d.startsWith('M0.0,-138.0 A138,138 0 0,1 ')).toBe(true);

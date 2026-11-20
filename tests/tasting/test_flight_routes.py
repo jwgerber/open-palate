@@ -367,6 +367,12 @@ class TestPalate:
         row = {c["name"]: c for c in body["coffees_tasted"]}["Guji Shakiso"]
         assert (row["yours"], row["theirs"], row["reads"]) == (4.0, 3.0, 2)
 
+    def test_specific_terms_count_leaves_outside_fruit(self, world, cs):
+        g = cs["guji"]
+        world.solo([g], who="member", entries=[entry(g.id, 4, tags={"Nut>hazelnut": 2, "Floral>jasmine": 2, "Fruit": 2})])
+        body = world.get("member", "/palate").get_json()
+        assert body["terms_used"] == 3 and body["specific_terms"] == 2
+
     def test_palate_includes_device_reads_after_link(self, world, cs, db_session):
         rowan = world.roster_only("Rowan")
         world.solo([cs["guji"]], who="device", pick=rowan.id, entries=[entry(cs["guji"].id, 5)])

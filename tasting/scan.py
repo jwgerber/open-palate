@@ -60,6 +60,7 @@ def _build_label_lookup() -> dict[str, str]:
 
 
 _LABEL_TO_KEY = _build_label_lookup()
+_SEP = content.get().lexicon["key_separator"]
 _DEFECTS = set(content.get().defects)
 
 
@@ -94,13 +95,24 @@ def _has_marks(column: dict) -> bool:
 
 
 def _read_flavor(words: list[str]) -> tuple[dict[str, int], list[str]]:
+    """Wheel words -> tags (capped), plus the words that didn't fit or match.
+
+    A word above another word read on the same sheet ("chocolate" with "milk
+    chocolate") is dropped: the more specific note wins, as in the picker, and
+    the server refuses a flavor saved together with one above it.
+    """
+    keys = {_LABEL_TO_KEY.get(w.strip().lower()) for w in words} - {None}
     tags: dict[str, int] = {}
     leftover: list[str] = []
     for word in words:
         key = _LABEL_TO_KEY.get(word.strip().lower())
-        if key is None or (key not in tags and len(tags) >= MAX_TAGS_PER_CUP):
+        if key is None:
             leftover.append(word.strip())
-        elif key not in tags:
+        elif key in tags or any(other.startswith(key + _SEP) for other in keys):
+            continue
+        elif len(tags) >= MAX_TAGS_PER_CUP:
+            leftover.append(word.strip())
+        else:
             tags[key] = 2
     return tags, leftover
 

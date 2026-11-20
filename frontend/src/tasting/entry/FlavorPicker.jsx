@@ -15,7 +15,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import HomeIcon from '@mui/icons-material/Home';
 import CloseIcon from '@mui/icons-material/Close';
-import FlavorWheel from './FlavorWheel';
+import FlavorWheel, { MAX_WEDGES } from './FlavorWheel';
 import TermChip from './TermChip';
 import Eyebrow from '../bits/Eyebrow';
 import { groupTags, describe, nodeAt, ALL_TERMS, MAX_TAGS_PER_CUP, ROOT_KEYS } from '../lexicon';
@@ -94,7 +94,9 @@ function FlavorPicker({ coffeeLabel, tags, onCycle, onRemove, path, onPath }) {
           ? `${MAX_TAGS_PER_CUP} of ${MAX_TAGS_PER_CUP} picked — remove one to add another`
           : path.length === 0
             ? `${ROOT_KEYS.length} families — tap one to open it`
-            : `${children.length} under ${node?.label} · tap the center to take "${node?.label}" as is`}
+            : children.length > MAX_WEDGES
+              ? `${children.length} under ${node?.label} · tap a note, or the button above to take "${node?.label}" as is`
+              : `${children.length} under ${node?.label} · tap the center to take "${node?.label}" as is`}
       </Typography>
 
       <TermSearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} tags={tags} onCycle={onCycle} />

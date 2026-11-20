@@ -192,7 +192,7 @@ account enumeration).
   served to the frontend from one endpoint. The Python → JS generator and its
   drift test are replaced by that endpoint plus a schema test on the files.
 - Today's content is the 2020 flavor wheel credited in the README (adopted
-  word for word on 2026-11-20, see `docs/specs/2026-11-20-ccc-wheel-design.md`)
+  word for word on 2026-11-20, see `docs/specs/2026-11-20-2020-wheel-design.md`)
   and the Advanced form. **The repo stays private until the owner hears back**
   from the wheel's publisher and the cupping-sheet publisher. With a yes, it goes public as-is. With a no on the
   lexicon, that file is replaced with original content and nothing else

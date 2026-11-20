@@ -17,6 +17,7 @@ import { Box, Typography } from '@mui/material';
 import { keyframes, useTheme } from '@mui/material/styles';
 import { nodeAt, ancestorsOf, FAMILY_HEX, tintFor, MAX_TAGS_PER_CUP } from '../lexicon';
 import { arc, GEOMETRY } from './wheelGeometry';
+import FlavorList, { isDarkFamily } from './FlavorList';
 
 const { SIZE, VIEW, R_INNER } = GEOMETRY;
 
@@ -42,15 +43,15 @@ const EASE = 'cubic-bezier(.4,0,.2,1)';
 const REDUCED = '@media (prefers-reduced-motion: reduce)';
 
 const pct = (v) => `${((v + VIEW / 2) / VIEW) * 100}%`;
-// Light wedges (sweet, grain) take dark ink; the rest take white.
-const LIGHT_FAMILIES = new Set(['sweet', 'grain']);
-const isDarkFamily = (family) => !LIGHT_FAMILIES.has(family);
-// The drill cascade: a capped stagger so the widest ring (10 wedges) is fully
+// The drill cascade: a capped stagger so the widest ring (MAX_WEDGES) is fully
 // painted in ~320ms rather than 690ms — the most repeated tap in the flavor step.
 const STAGGER_MS = 20;
 const STAGGER_CAP = 4;
 const IN_MS = 240;
 const delay = (i) => Math.min(i, STAGGER_CAP) * STAGGER_MS;
+// Past this many notes a ring's wedges get too thin to tap and their labels
+// collide on a phone, so the ring is drawn as a list (FlavorList) instead.
+export const MAX_WEDGES = 12;
 
 function FlavorWheel({ path, tags, onPath, onCycle }) {
   const theme = useTheme();
@@ -79,6 +80,16 @@ function FlavorWheel({ path, tags, onPath, onCycle }) {
   const tapCenter = () => { if (node && !covered) onCycle(node.key); };
   const onKey = (fn) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
   const stateOf = (s) => (s === 3 ? ', strong' : s ? ', picked' : '');
+
+  if (node && n > MAX_WEDGES) {
+    return (
+      <FlavorList
+        node={node} items={children} tags={tags} atCap={atCap} covered={covered}
+        hereStrength={hereStrength} hereInside={hereInside} onTapChild={tapWedge}
+        onTapHeading={tapCenter} stateOf={stateOf} mode={theme.palette.mode}
+      />
+    );
+  }
 
   return (
     <Box sx={{ position: 'relative', width: SIZE, height: SIZE, maxWidth: '100%', touchAction: 'manipulation', mx: 'auto' }} data-testid="flavor-wheel">

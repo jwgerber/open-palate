@@ -26,7 +26,7 @@ export default function BasicSection({ data }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Typography variant="caption" color="text.secondary">
-        {[plural(data.tastings, 'tasting'), plural(data.coffees, 'coffee'), plural(data.terms_used, 'term') + ' used', `${data.specific_terms} specific (tier 3)`].join(' · ')}
+        {[plural(data.tastings, 'tasting'), plural(data.coffees, 'coffee'), plural(data.terms_used, 'term') + ' used', `${data.specific_terms} specific`].join(' · ')}
       </Typography>
       <Card>
         <Eyebrow>Calibration</Eyebrow>
