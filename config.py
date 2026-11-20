@@ -117,6 +117,11 @@ def load_config(env=os.environ) -> dict:
     database_uri = absolute_sqlite_uri(
         normalize_database_url(env.get("DATABASE_URL") or DEFAULT_DATABASE_URL))
     base_url = env.get("BASE_URL")
+    if not base_url and env.get("RENDER_EXTERNAL_URL"):
+        # Render sets this to the service's own onrender.com address, so a
+        # one-click deploy works without the visitor guessing their URL.
+        base_url = env["RENDER_EXTERNAL_URL"]
+        logger.info("BASE_URL is not set; using RENDER_EXTERNAL_URL (%s).", base_url)
     if not base_url:
         logger.warning("BASE_URL is not set; using http://localhost:8000. Set it to the address people open.")
         base_url = "http://localhost:8000"

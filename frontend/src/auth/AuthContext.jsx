@@ -6,7 +6,7 @@
  * Only a 401 means signed out. Any other failure (network down, 5xx) sets
  * `error: true` and keeps what was known: a shared tablet must never be bounced
  * to a sign-in page it cannot use, because its device code is single-use.
- * `setup` is the setup status (`{needed: true, open, password}`, `{needed: false}`, or
+ * `setup` is the setup status (`{needed: true, open, password, email}`, `{needed: false, email}`, or
  * `{failed: true}`); it is only asked of a signed-out visitor, and a signed-in user is
  * known to be past setup. Null until known.
  * `refresh()` never rejects; it reports through the state.
@@ -20,7 +20,7 @@ const AuthContext = createContext(null);
 const SIGNED_OUT = { kind: null, user: null, group: null, role: null, error: false, setup: null };
 
 /**
- * First-run setup status: the server's `{needed, open?, password?}`, or `{ failed: true }`
+ * First-run setup status: the server's `{needed, email, open?, password?}`, or `{ failed: true }`
  * when the call fails. A failure must not lock the app out, so it never counts as needed.
  */
 async function loadSetupStatus() {

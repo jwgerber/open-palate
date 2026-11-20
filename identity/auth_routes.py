@@ -154,10 +154,12 @@ def setup():
 @limiter.limit("30/minute")
 @handle_db_errors("Could not check setup")
 def setup_status():
-    """Public. Says whether first-admin setup is needed and how this visitor may do it."""
+    """Public. Says whether first-admin setup is needed and how this visitor may do
+    it, and whether this copy can send email (so sign-in can say where links go)."""
+    email = bool(current_app.config.get("SMTP_HOST"))
     if admin_exists():
-        return jsonify({"needed": False})
-    return jsonify({"needed": True, "open": setup_is_open(),
+        return jsonify({"needed": False, "email": email})
+    return jsonify({"needed": True, "open": setup_is_open(), "email": email,
                     "password": bool(current_app.config.get("SETUP_PASSWORD"))})
 
 
