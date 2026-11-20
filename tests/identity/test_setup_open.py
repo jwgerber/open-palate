@@ -5,7 +5,7 @@ import pytest
 
 from app import create_app
 from extensions import db
-from identity.accounts import admin_exists, new_setup_token
+from identity.accounts import new_setup_token, setup_needed
 from identity.setup_access import is_private
 from tests.identity.helpers import csrf, make_group, make_member
 
@@ -51,7 +51,7 @@ def test_local_peer_without_proxy_header_is_open(app, database_url):
     response = post_setup(setup_app, "192.168.1.5")
     assert response.status_code == 200
     with setup_app.app_context():
-        assert admin_exists()
+        assert not setup_needed()
 
 
 def test_spoofed_forwarded_for_from_public_peer_is_not_open(app, database_url):
@@ -154,7 +154,9 @@ def test_racing_setup_loses_with_409_and_leaves_one_group(app, database_url, mon
 
     def other_setup_wins_first(email, display_name):
         # Another request completes setup between our check and our write.
-        _, _ = make_member(make_group("Race"), "first@example.com", "admin")
+        racer, _ = make_member(make_group("Race"), "first@example.com", "admin")
+        racer.is_owner = True
+        db.session.commit()
         return real_ensure_admin(email, display_name)
 
     monkeypatch.setattr(auth_routes, "ensure_admin", other_setup_wins_first)
