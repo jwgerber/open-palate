@@ -28,7 +28,7 @@ Add a test with each change: one that fails before your fix and passes after.
 - **One person gets one read per cup**, however they signed in.
 - **Shared-tablet checks branch on `actor.kind`**, never on whether a `user_id` is present.
 - **Logs never record query strings**, because sign-in links carry a token.
-- **The flavor-wheel lexicon (`content/lexicon.json`) is fixed.** It matches the published wheel; don't edit its terms, order or structure.
+- **The flavor-wheel lexicon (`content/lexicon.json`) matches the published 2020 wheel credited in the README, exactly.** Don't add, drop or reword notes, or change their grouping or order.
 
 ## Database changes
 
