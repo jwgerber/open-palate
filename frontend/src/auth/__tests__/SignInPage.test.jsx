@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../api', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+let setup = null;
+vi.mock('../AuthContext', () => ({ useAuth: () => ({ setup }) }));
 import api from '../../api';
 import SignInPage from '../SignInPage';
 
@@ -16,7 +18,7 @@ describe('SignInPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.post.mockResolvedValue({ data: { status: 'sent' } });
-    api.get.mockResolvedValue({ data: { needed: false, email: true } });
+    setup = { needed: false, email: true };
   });
 
   it('shows the same message for any email', async () => {
@@ -53,25 +55,26 @@ describe('SignInPage', () => {
     return screen.findByTestId('sent-note');
   };
 
-  it('says email is off and where links go', async () => {
-    api.get.mockResolvedValue({ data: { needed: false, email: false } });
+  it('says email is off and where links go, from the status the app already loaded', async () => {
+    setup = { needed: false, email: false };
     mount();
-    expect(await screen.findByText(INTRO_OFF)).toBeInTheDocument();
+    expect(screen.getByText(INTRO_OFF)).toBeInTheDocument();
     expect((await submitFor('a@example.test')).textContent).toBe(SENT_OFF);
+    expect(api.get).not.toHaveBeenCalled();
   });
 
   it('keeps the email wording when email is on', async () => {
     mount();
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/auth/setup-status'));
     expect(screen.getByText('Sign in with your email. We send a one-time link.')).toBeInTheDocument();
     expect((await submitFor('a@example.test')).textContent).toMatch(/a sign-in link is on its way/);
   });
 
-  it('keeps the email wording when setup-status fails', async () => {
-    api.get.mockRejectedValue({ response: { status: 429, data: {} } });
-    mount();
-    await waitFor(() => expect(api.get).toHaveBeenCalled());
-    expect(screen.getByText('Sign in with your email. We send a one-time link.')).toBeInTheDocument();
-    expect((await submitFor('a@example.test')).textContent).toMatch(/a sign-in link is on its way/);
+  it('keeps the email wording when the setup status is unknown or failed', async () => {
+    for (const unknown of [null, { failed: true }]) {
+      setup = unknown;
+      const { unmount } = mount();
+      expect(screen.getByText('Sign in with your email. We send a one-time link.')).toBeInTheDocument();
+      unmount();
+    }
   });
 });
