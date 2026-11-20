@@ -32,4 +32,6 @@ CI (`.github/workflows/ci.yml`) runs both suites on SQLite and Postgres, and bui
   - Coffee consensus needs `CONSENSUS_THRESHOLD = 3`.
   - One person gets one read per cup, however they signed in.
 - Device (shared tablet) checks branch on `actor.kind`, never on `user_id is not None`, because a device pick of a linked member carries a `user_id`.
+- The group comes from the `X-Group` header, and only `identity/access.py::_resolve_actor()` decides it. A group the caller isn't an active member of is 404 `group_not_found`, never 403.
+- `signed_in` routes take user sessions only, never a device, and have no group.
 - Gunicorn and werkzeug logs must not record query strings, because sign-in links carry `token=`.

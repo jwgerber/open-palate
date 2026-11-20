@@ -124,8 +124,8 @@ through member rows as well as `user_id`.
 **Personal groups** exist only where sign-up is open (`ALLOW_SIGNUP=true`, the
 hosted service): every new account gets one (`is_personal`), so a solo cupper
 with no café can still host and keep coffees. On a self-hosted install with
-sign-up off there are no personal groups; Phase 1 has one group and every route
-uses it.
+sign-up off there are no personal groups. An install can hold many groups; see
+`docs/specs/2026-11-20-multi-group-and-setup-design.md`.
 
 ## Identity and access
 

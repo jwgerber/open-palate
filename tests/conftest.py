@@ -51,6 +51,8 @@ def app(database_url):
         with db.engine.begin() as conn:
             for table in reversed(db.metadata.sorted_tables):
                 conn.execute(table.delete())
+            # The migration seeds this singleton; the wipe above removed it.
+            conn.execute(db.text("INSERT INTO install_settings (id) VALUES (1)"))
         db.engine.dispose()
 
 

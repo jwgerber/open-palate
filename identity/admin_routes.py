@@ -1,6 +1,7 @@
 """/api/group: group settings, roster and device codes. Group admins only."""
 import logging
 from datetime import timezone
+from functools import wraps
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Blueprint, jsonify
@@ -44,6 +45,32 @@ def _clean_name(value):
     return name if name and len(name) <= 120 else None
 
 
+def valid_timezone(zone) -> bool:
+    try:
+        if not isinstance(zone, str) or not zone or len(zone) > 64:
+            return False
+        ZoneInfo(zone)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        return False
+    return True
+
+
+def bad_timezone_response():
+    return jsonify({"error": "bad_timezone", "field": "timezone"}), 422
+
+
+def team_only(fn):
+    """404 in a personal space: it has no roster, device codes or sample data.
+    Put it under ``require`` (it reads the actor) and above ``handle_db_errors``."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        group = db.session.get(Group, current_actor().group_id)
+        if group is None or group.is_personal:
+            return jsonify({"error": "not_found"}), 404
+        return fn(*args, **kwargs)
+    return wrapper
+
+
 @admin_bp.get("")
 @require("admin")
 @handle_db_errors("Could not load the group")
@@ -69,12 +96,8 @@ def patch_group():
         group.name = name
     if "timezone" in data:
         zone = data["timezone"]
-        try:
-            if not isinstance(zone, str) or not zone or len(zone) > 64:
-                raise ZoneInfoNotFoundError(zone)
-            ZoneInfo(zone)
-        except (ZoneInfoNotFoundError, ValueError, OSError):
-            return jsonify({"error": "bad_timezone", "field": "timezone"}), 422
+        if not valid_timezone(zone):
+            return bad_timezone_response()
         group.timezone = zone
     db.session.commit()
     return jsonify(_group_dict(group))
@@ -82,6 +105,7 @@ def patch_group():
 
 @admin_bp.get("/members")
 @require("admin")
+@team_only
 @handle_db_errors("Could not load members")
 def list_members():
     admin = current_actor()
@@ -101,6 +125,7 @@ def _email_value(value):
 
 @admin_bp.post("/members")
 @require("admin")
+@team_only
 @handle_db_errors("Could not add the member")
 def add_member():
     admin = current_actor()
@@ -136,6 +161,7 @@ def _other_active_admin_exists(group_id: int, member_id: int) -> bool:
 
 @admin_bp.patch("/members/<int:member_id>")
 @require("admin")
+@team_only
 @handle_db_errors("Could not update the member")
 def patch_member(member_id: int):
     admin = current_actor()
@@ -192,6 +218,7 @@ def patch_member(member_id: int):
 
 @admin_bp.post("/members/<int:member_id>/signin-link")
 @require("admin")
+@team_only
 @handle_db_errors("Could not create a sign-in link")
 def copy_signin_link(member_id: int):
     admin = current_actor()
@@ -211,6 +238,10 @@ def copy_signin_link(member_id: int):
     if email is None:
         return jsonify({"error": "no_email"}), 409
     existing = find_user(email)
+    if existing is not None and existing.is_owner and member.id != admin.member_id:
+        # A link signs in as that person: a team admin must never reach the owner
+        # (an owner who is also this group's admin may copy their own row).
+        return jsonify({"error": "owner_member"}), 409
     if existing is not None and db.session.execute(
             db.select(Member.id).where(Member.user_id == existing.id,
                                        Member.group_id != admin.group_id).limit(1)
@@ -236,6 +267,7 @@ def copy_signin_link(member_id: int):
 
 @admin_bp.post("/device-codes")
 @require("admin")
+@team_only
 @handle_db_errors("Could not create a device code")
 def create_device_code():
     admin = current_actor()
@@ -250,6 +282,7 @@ def create_device_code():
 
 @admin_bp.get("/device-codes")
 @require("admin")
+@team_only
 @handle_db_errors("Could not load device codes")
 def list_device_codes():
     admin = current_actor()
@@ -269,6 +302,7 @@ def list_device_codes():
 
 @admin_bp.delete("/device-codes/<int:code_id>")
 @require("admin")
+@team_only
 @handle_db_errors("Could not revoke the device code")
 def revoke_device_code(code_id: int):
     admin = current_actor()
@@ -290,6 +324,7 @@ def revoke_device_code(code_id: int):
 
 @admin_bp.post("/sample-data")
 @require("admin")
+@team_only
 @handle_db_errors("Could not load the sample data")
 def post_sample_data():
     admin = current_actor()
@@ -304,6 +339,7 @@ def post_sample_data():
 
 @admin_bp.delete("/sample-data")
 @require("admin")
+@team_only
 @handle_db_errors("Could not remove the sample data")
 def delete_sample_data():
     admin = current_actor()

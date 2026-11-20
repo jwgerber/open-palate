@@ -54,11 +54,11 @@ Migrations run on every container start.
 
 ## First admin
 
-While no admin exists, any ONE of these creates the first admin:
+While there is no owner and no team, any ONE of these creates the first owner and admin:
 
 1. **Open setup.** The setup page needs nothing. It applies when `SETUP_OPEN=true` (anyone who can reach the app), or, when running directly and not in Docker, when the visitor's real connection and forwarded address are both on your own network (private or loopback). In Docker, setup is never open by itself: on a server, Docker makes every visitor look local, so you must use one of the next two ways or set `SETUP_OPEN`. Running directly behind a proxy or tunnel on the same machine, the proxy must send `X-Forwarded-For`; otherwise every visitor looks local. If you cannot guarantee that, set `SETUP_OPEN=false` and use the setup link or `SETUP_PASSWORD`.
 2. **`SETUP_PASSWORD`.** Set it, open the app, and type it on the setup page.
-3. **The setup link in the log.** On start, if no admin exists, the app logs a one-time link (valid 15 minutes, a fresh one at each start until an admin exists):
+3. **The setup link in the log.** On start, if there is no owner and no team, the app logs a one-time link (valid 15 minutes, a fresh one at each start until setup closes):
 
 ```sh
 docker logs tasting | grep "No admin yet"
@@ -70,9 +70,21 @@ Open it, set your name, then set the group name and time zone, add staff, and ma
 docker exec --user 10001 tasting flask create-admin you@example.com
 ```
 
-Setup requests are limited to 5 a minute. Once an admin exists, setup is closed. If every admin is lost, run `flask create-admin` again to recover.
+Setup requests are limited to 5 a minute. Setup closes once there is an owner or a team. If every admin is lost, run `flask create-admin` again to recover (see the server commands below).
 
 Next, in the Log or Coffees tab an admin of an empty group can **load sample data** (five coffees, three sample tasters, a closed tasting and a closed cupping on the advanced sheet) to see how the app looks. Remove it in Group settings.
+
+## Groups and the owner
+
+One install can hold many groups (teams). The app names each request's group in an `X-Group: <id>` header. An `X-Group` you aren't an active member of, or that isn't a valid group id, answers 404 `group_not_found`. A person who belongs to one group can send no header; API clients that do this keep working. A person who belongs to more than one group (a personal space counts) must send the header; without it they get 400 `group_required`.
+
+The owner is the person set up first. The owner sets the install address used in links and QR codes, lists the teams (names and member counts only), and makes new teams. The owner gets no access inside a team: to taste or manage in a team, be a member of it. Anyone signed in can make one personal space.
+
+Server commands, run as in the examples above (`docker exec --user 10001 tasting flask ...`):
+
+- `flask create-admin <email|user-id> [--name NAME] [--group ID] [--owner-only]` makes the person owner. With no team it creates the first one; with one team it makes them admin of it; with several, pass `--group ID` or `--owner-only`. It prints a sign-in link. This is the way back in if every admin is lost.
+- `flask remove-owner <email|user-id>` clears the owner flag. It refuses to remove the last owner.
+- `flask signin-link <email|user-id>` prints a one-time sign-in link (valid 15 minutes) and changes nothing else.
 
 ## The shop tablet
 

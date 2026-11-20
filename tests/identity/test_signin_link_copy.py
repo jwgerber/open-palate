@@ -166,3 +166,38 @@ def test_links_are_for_members_and_your_own_row_only(app, db_session):
     assert db.session.execute(db.select(LoginToken)).scalars().all() == []
     assert copy_link(client, headers, admin_member).status_code == 200
     assert copy_link(client, headers, add_roster_member(group)).status_code == 200
+
+
+def test_signin_link_refuses_owner_without_membership(app, db_session):
+    group, _, client, headers = setup_admin(app)
+    owner = User(email="owner@cafe.com", display_name="Owner", is_owner=True)
+    db.session.add(owner)
+    db.session.commit()
+    member = add_roster_member(group, email="owner@cafe.com")
+    response = copy_link(client, headers, member)
+    assert response.status_code == 409 and response.get_json()["error"] == "owner_member"
+    db.session.refresh(member)
+    assert member.user_id is None
+
+
+def test_owner_who_is_admin_copies_their_own_link(app, db_session):
+    group = make_group()
+    owner, member = make_member(group, "boss@cafe.com", "admin")
+    owner.is_owner = True
+    db.session.commit()
+    client = app.test_client()
+    headers = sign_in(client, owner)
+    response = copy_link(client, headers, member)
+    assert response.status_code == 200
+    assert consume(app, response.get_json()["link"]).headers["Location"].endswith("/")
+
+
+def test_admin_pointing_own_row_at_owner_email_is_blocked(app, db_session):
+    group, admin_member, client, headers = setup_admin(app)
+    owner = User(email="owner@cafe.com", display_name="Owner", is_owner=True)
+    db.session.add(owner)
+    admin_member.email = "owner@cafe.com"
+    db.session.commit()
+    response = copy_link(client, headers, admin_member)
+    assert response.status_code == 409 and response.get_json()["error"] == "not_linked"
+    assert db.session.execute(db.select(LoginToken)).scalars().all() == []

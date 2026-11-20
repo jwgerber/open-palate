@@ -9,9 +9,10 @@ from sqlalchemy import func, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from extensions import db
+from identity.address import app_address
 from identity.models import Group, LoginToken, Member, User
 from identity.tokens import new_token
-from utils import utc_now
+from utils import is_pg_int, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ def issue_signin_link(user: User, ttl: timedelta = LINK_TTL,
     expires_at = now + ttl
     db.session.add(LoginToken(user_id=user.id, token_hash=digest, purpose="signin",
                               expires_at=expires_at))
-    return f"{current_app.config['BASE_URL']}/api/auth/consume?token={raw}", expires_at
+    return f"{app_address()}/api/auth/consume?token={raw}", expires_at
 
 
 def link_roster_members(user: User) -> None:
@@ -99,9 +100,24 @@ def link_roster_members(user: User) -> None:
             linked_groups.add(member.group_id)
 
 
-def admin_exists() -> bool:
-    return db.session.execute(
-        db.select(Member.id).where(Member.role == "admin").limit(1)).first() is not None
+def setup_needed() -> bool:
+    """First-run setup is open only while there is no owner and no real (non-personal)
+    group; an upgraded install with a group but no owner user must not reopen it."""
+    has_owner = db.session.execute(
+        db.select(User.id).where(User.is_owner.is_(True)).limit(1)).first() is not None
+    has_group = db.session.execute(
+        db.select(Group.id).where(Group.is_personal.is_(False)).limit(1)).first() is not None
+    return not has_owner and not has_group
+
+
+def find_user_by_ref(ref: str) -> User | None:
+    """A user by id (all digits) or by email."""
+    ref = ref.strip()
+    if ref.isdigit():
+        user_id = int(ref)
+        return db.session.get(User, user_id) if is_pg_int(user_id) else None
+    email = normalize_email(ref)
+    return find_user(email) if email else None
 
 
 _SETUP_LOCK_KEY = 0x6F70616C  # arbitrary constant: "opal"
@@ -114,15 +130,16 @@ def lock_first_admin_setup() -> None:
         db.session.execute(db.text("SELECT pg_advisory_xact_lock(:key)"), {"key": _SETUP_LOCK_KEY})
 
 
-def more_than_one_admin() -> bool:
+def more_than_one_owner() -> bool:
     return db.session.execute(
-        db.select(func.count(Member.id)).where(Member.role == "admin")).scalar_one() > 1
+        db.select(func.count(User.id)).where(User.is_owner.is_(True))).scalar_one() > 1
 
 
 def ensure_admin(email: str, display_name: str) -> User:
     """Get or create the user, the install's group (created when none exists)
-    and an admin member row for them. The caller commits."""
+    and an admin member row for them; marks them an owner. The caller commits."""
     user = get_or_create_user(email, display_name)
+    user.is_owner = True
     group = db.session.execute(
         db.select(Group).where(Group.is_personal.is_(False)).order_by(Group.id).limit(1)
     ).scalar_one_or_none()
@@ -147,7 +164,7 @@ def ensure_admin(email: str, display_name: str) -> User:
 # yet, so the token is a timestamped signature over a random nonce instead of a
 # row. Every worker can verify it (shared SECRET_KEY), it survives restarts
 # within its 15 minutes, and it is single-use in effect: redeeming it creates
-# the first admin, after which `admin_exists()` refuses every setup token.
+# the first admin, after which `setup_needed()` refuses every setup token.
 
 def _setup_serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt=_SETUP_SALT)
@@ -168,10 +185,10 @@ def setup_token_valid(token) -> bool:
 
 
 def log_setup_link_if_needed(app) -> None:
-    """On start, log a one-time setup link while the install has no admin."""
+    """On start, log a one-time setup link while the install needs setup."""
     with app.app_context():
         try:
-            needed = not admin_exists()
+            needed = setup_needed()
         except SQLAlchemyError:
             logger.warning("Could not check for an admin at start-up (is the database "
                            "migrated?); no setup link logged.", exc_info=True)
@@ -179,7 +196,11 @@ def log_setup_link_if_needed(app) -> None:
         finally:
             db.session.remove()
         if needed:
-            link = f"{app.config['BASE_URL']}/setup?token={new_setup_token()}"
+            try:
+                address = app_address()
+            except SQLAlchemyError:
+                address = app.config["BASE_URL"]
+            link = f"{address}/setup?token={new_setup_token()}"
             # "From this machine" only helps when open setup can apply to it.
             open_from_here = (app.config.get("SETUP_OPEN") is None
                               and not app.config.get("IN_CONTAINER"))

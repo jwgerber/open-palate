@@ -10,7 +10,7 @@ from flask import Blueprint, Response, jsonify, request
 from freezegun import freeze_time
 
 from extensions import db
-from identity.access import actor_for_pick, current_actor, require
+from identity.access import actor_for_pick, current_actor, current_user, require
 from identity.models import Group, Member
 from identity.sessions import SESSION_COOKIE, start_device_session
 from tests.identity.helpers import csrf, make_group, make_member, sign_in
@@ -40,6 +40,11 @@ def _stub_blueprint() -> Blueprint:
     bp = Blueprint("access_stub", __name__, url_prefix="/api/_stub")
     for level in LEVELS:
         bp.add_url_rule(f"/{level}", f"level_{level}", require(level)(_actor_json))
+
+    @bp.get("/signed-in")
+    @require("signed_in")
+    def signed_in_route():
+        return jsonify({"user_id": current_user().id})
 
     @bp.get("/palate")
     @require("self")
@@ -164,16 +169,120 @@ def test_inactive_member_gets_no_access(stub_app, db_session):
     assert client.get("/api/_stub/member").get_json() == {"error": "no_group"}
 
 
-def test_two_active_memberships_are_ambiguous(stub_app, db_session):
-    first, second = make_group("A"), make_group("B")
-    user, _ = make_member(first, "two@cafe.com", "admin")
-    db.session.add(Member(group_id=second.id, display_name="two", email="two@cafe.com",
-                          user_id=user.id, role="member"))
+def _two_group_user(email="two@cafe.com"):
+    group_a, group_b = make_group("A"), make_group("B")
+    user, _ = make_member(group_a, email, "member")
+    db.session.add(Member(group_id=group_b.id, display_name="two", email=email,
+                          user_id=user.id, role="admin"))
     db.session.commit()
+    return group_a, group_b, user
+
+
+def test_two_groups_no_header_400(stub_app, db_session):
+    _, _, user = _two_group_user()
     client = stub_app.test_client()
     sign_in(client, user)
     response = client.get("/api/_stub/member")
-    assert response.status_code == 403 and response.get_json() == {"error": "ambiguous_group"}
+    assert response.status_code == 400 and response.get_json() == {"error": "group_required"}
+
+
+def test_header_picks_group(stub_app, db_session):
+    group_a, group_b, user = _two_group_user()
+    client = stub_app.test_client()
+    sign_in(client, user)
+    body = client.get("/api/_stub/admin", headers={"X-Group": str(group_b.id)})
+    assert body.status_code == 200 and body.get_json()["group_id"] == group_b.id
+    denied = client.get("/api/_stub/admin", headers={"X-Group": str(group_a.id)})
+    assert denied.status_code == 403 and denied.get_json() == {"error": "forbidden"}
+
+
+def test_header_with_single_group_ok(stub_app, db_session):
+    group = make_group()
+    user, _ = make_member(group, "one@cafe.com", "member")
+    client = stub_app.test_client()
+    sign_in(client, user)
+    body = client.get("/api/_stub/member", headers={"X-Group": str(group.id)})
+    assert body.status_code == 200 and body.get_json()["group_id"] == group.id
+
+
+def test_header_not_member_404(stub_app, db_session):
+    group = make_group("Mine")
+    other = make_group("Other")
+    user, _ = make_member(group, "me@cafe.com", "admin")
+    client = stub_app.test_client()
+    sign_in(client, user)
+    response = client.get("/api/_stub/member", headers={"X-Group": str(other.id)})
+    assert response.status_code == 404 and response.get_json() == {"error": "group_not_found"}
+
+
+def test_header_inactive_row_404(stub_app, db_session):
+    group, off = make_group("Mine"), make_group("Off")
+    user, _ = make_member(group, "me@cafe.com", "admin")
+    db.session.add(Member(group_id=off.id, display_name="me", email="me@cafe.com",
+                          user_id=user.id, role="admin", active=False))
+    db.session.commit()
+    client = stub_app.test_client()
+    sign_in(client, user)
+    response = client.get("/api/_stub/member", headers={"X-Group": str(off.id)})
+    assert response.status_code == 404 and response.get_json() == {"error": "group_not_found"}
+
+
+@pytest.mark.parametrize("value", ["abc", "", "99999999999", "-1", "0x1", " 1", "1.0", "\u0661"])
+def test_bad_header_values_404(stub_app, db_session, value):
+    group = make_group()
+    user, _ = make_member(group, "me@cafe.com", "admin")
+    client = stub_app.test_client()
+    sign_in(client, user)
+    response = client.get("/api/_stub/member", headers={"X-Group": value})
+    assert response.status_code == 404 and response.get_json() == {"error": "group_not_found"}
+
+
+def test_device_header_same_group_ok(clients):
+    group, by_kind = clients
+    response = by_kind["device"].get("/api/_stub/member", headers={"X-Group": str(group.id)})
+    assert response.status_code == 200 and response.get_json()["kind"] == "device"
+
+
+def test_device_header_other_group_404(clients):
+    _, by_kind = clients
+    other = make_group("Other")
+    for value in (str(other.id), "abc", ""):
+        response = by_kind["device"].get("/api/_stub/member", headers={"X-Group": value})
+        assert response.status_code == 404 and response.get_json() == {"error": "group_not_found"}
+
+
+def test_signed_in_no_group_ok(stub_app, db_session):
+    from identity.models import User
+    user = User(email="lone@cafe.com", display_name="lone")
+    db.session.add(user)
+    db.session.commit()
+    client = stub_app.test_client()
+    sign_in(client, user)
+    response = client.get("/api/_stub/signed-in")
+    assert response.status_code == 200 and response.get_json() == {"user_id": user.id}
+
+
+def test_signed_in_ignores_group_header(stub_app, db_session):
+    group = make_group()
+    user, _ = make_member(group, "me@cafe.com", "member")
+    client = stub_app.test_client()
+    sign_in(client, user)
+    response = client.get("/api/_stub/signed-in", headers={"X-Group": "abc"})
+    assert response.status_code == 200
+
+
+def test_signed_in_refuses_device(clients):
+    _, by_kind = clients
+    device = by_kind["device"].get("/api/_stub/signed-in")
+    assert device.status_code == 403 and device.get_json() == {"error": "forbidden"}
+    none = by_kind["none"].get("/api/_stub/signed-in")
+    assert none.status_code == 401 and none.get_json() == {"error": "unauthorized"}
+
+
+def test_current_user_outside_signed_in_raises(stub_app):
+    with stub_app.test_request_context("/"):
+        with pytest.raises(RuntimeError):
+            current_user()
 
 
 def test_inactive_second_membership_is_not_ambiguous(stub_app, db_session):

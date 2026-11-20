@@ -158,3 +158,229 @@ def test_0006_clears_tasting_tags(fresh_url):
             assert conn.execute(sa.text("SELECT COUNT(*) FROM tasting_coffees")).scalar() == 1
     finally:
         engine.dispose()
+
+
+def _engine_at(url, revision):
+    command.upgrade(alembic_config(url), revision)
+    return sa.create_engine(normalize_database_url(url))
+
+
+def _seed_group_with_members(conn, members):
+    """members: (id, user_id or None, role, created_at, active). One user per user_id."""
+    conn.execute(sa.text(
+        "INSERT INTO groups (id, name, timezone, is_personal, created_at) "
+        "VALUES (1, 'G', 'UTC', false, '2026-01-01')"))
+    for member_id, user_id, role, created_at, active in members:
+        if user_id is not None:
+            conn.execute(sa.text(
+                "INSERT INTO users (id, email, display_name, created_at) "
+                f"VALUES ({user_id}, 'u{user_id}@x.co', 'U{user_id}', '2026-01-01')"))
+        conn.execute(sa.text(
+            "INSERT INTO members (id, group_id, display_name, user_id, role, active, created_at) "
+            f"VALUES ({member_id}, 1, 'M{member_id}', {user_id if user_id is not None else 'NULL'}, "
+            f"'{role}', {'true' if active else 'false'}, '{created_at}')"))
+
+
+def _owner_ids(engine):
+    with engine.connect() as conn:
+        return {row[0] for row in conn.execute(sa.text("SELECT id FROM users WHERE is_owner"))}
+
+
+def test_upgrade_backfills_owner(fresh_url):
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_with_members(conn, [
+                (1, 11, "admin", "2026-01-02", True),   # admin A, older
+                (2, 12, "admin", "2026-01-05", True),   # admin B
+                (3, 13, "member", "2026-01-01", True),  # member C
+            ])
+        command.upgrade(alembic_config(fresh_url), "0007")
+        assert _owner_ids(engine) == {11}
+    finally:
+        engine.dispose()
+
+
+def test_owner_backfill_skips_admin_without_user(fresh_url):
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_with_members(conn, [
+                (1, None, "admin", "2026-01-01", True),  # earliest, but no user
+                (2, 12, "admin", "2026-01-05", True),
+                (3, 13, "admin", "2026-01-06", True),
+            ])
+        command.upgrade(alembic_config(fresh_url), "0007")
+        assert _owner_ids(engine) == {12}
+    finally:
+        engine.dispose()
+
+
+def test_owner_backfill_none_when_no_admin_user(fresh_url):
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_with_members(conn, [
+                (1, None, "admin", "2026-01-01", True),
+                (2, 12, "member", "2026-01-02", True),
+                (3, 13, "admin", "2026-01-03", False),  # inactive admin does not count
+            ])
+        command.upgrade(alembic_config(fresh_url), "0007")
+        assert _owner_ids(engine) == set()
+    finally:
+        engine.dispose()
+
+
+def test_owner_backfill_tie_breaks_on_lowest_member_id(fresh_url):
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_with_members(conn, [
+                (5, 15, "admin", "2026-01-01", True),
+                (4, 14, "admin", "2026-01-01", True),
+            ])
+        command.upgrade(alembic_config(fresh_url), "0007")
+        assert _owner_ids(engine) == {14}
+    finally:
+        engine.dispose()
+
+
+def test_install_settings_row_exists(fresh_url):
+    command.upgrade(alembic_config(fresh_url), "head")
+    engine = sa.create_engine(normalize_database_url(fresh_url))
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(sa.text("SELECT id, public_url FROM install_settings")).all()
+        assert [tuple(r) for r in rows] == [(1, None)]
+        with pytest.raises(IntegrityError):
+            with engine.begin() as conn:
+                conn.execute(sa.text("INSERT INTO install_settings (id) VALUES (2)"))
+    finally:
+        engine.dispose()
+
+
+def _group_index_names(engine):
+    catalog = ("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'groups'"
+               if engine.dialect.name == "sqlite"
+               else "SELECT indexname FROM pg_indexes WHERE tablename = 'groups'")
+    with engine.connect() as conn:
+        return {row[0] for row in conn.execute(sa.text(catalog))}
+
+
+def test_personal_user_unique(fresh_url):
+    command.upgrade(alembic_config(fresh_url), "head")
+    engine = sa.create_engine(normalize_database_url(fresh_url))
+    insert = ("INSERT INTO groups (name, timezone, is_personal, personal_user_id, created_at) "
+              "VALUES ('P', 'UTC', {personal}, {user}, '2026-01-01')")
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text(
+                "INSERT INTO users (id, email, display_name, created_at) "
+                "VALUES (1, 'a@b.c', 'A', '2026-01-01')"))
+            conn.execute(sa.text(insert.format(personal="true", user=1)))
+        with pytest.raises(IntegrityError):
+            with engine.begin() as conn:
+                conn.execute(sa.text(insert.format(personal="true", user=1)))
+        with pytest.raises(IntegrityError):
+            with engine.begin() as conn:
+                conn.execute(sa.text(insert.format(personal="false", user=1)))
+        with pytest.raises(IntegrityError):  # personal without an owner user
+            with engine.begin() as conn:
+                conn.execute(sa.text(insert.format(personal="true", user="NULL")))
+        assert "uq_groups_personal_user" in _group_index_names(engine)
+    finally:
+        engine.dispose()
+
+
+def test_0007_downgrade_roundtrip(fresh_url):
+    config = alembic_config(fresh_url)
+    command.upgrade(config, "head")
+    command.downgrade(config, "0006")
+    engine = sa.create_engine(normalize_database_url(fresh_url))
+    try:
+        inspector = sa.inspect(engine)
+        assert "install_settings" not in inspector.get_table_names()
+        assert "is_owner" not in {c["name"] for c in inspector.get_columns("users")}
+        assert "personal_user_id" not in {c["name"] for c in inspector.get_columns("groups")}
+        assert "uq_groups_personal_user" not in _group_index_names(engine)
+        command.upgrade(config, "head")
+        assert "uq_groups_personal_user" in _group_index_names(engine)
+        assert "uq_members_group_lower_email" in {
+            row[0] for row in engine.connect().execute(sa.text(
+                "SELECT name FROM sqlite_master WHERE type = 'index'" if engine.dialect.name == "sqlite"
+                else "SELECT indexname FROM pg_indexes WHERE tablename = 'members'"))}
+    finally:
+        engine.dispose()
+
+
+def test_upgraded_admin_still_works(fresh_url):
+    from app import create_app
+    from extensions import db
+    from identity.models import User
+    from tests.identity.helpers import sign_in
+
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_with_members(conn, [(1, 11, "admin", "2026-01-01", True)])
+            conn.execute(sa.text(
+                "INSERT INTO tasting_coffees (id, group_id, name, kind, created_at, updated_at) "
+                "VALUES (1, 1, 'Ethiopia', 'house', '2026-01-01', '2026-01-01')"))
+    finally:
+        engine.dispose()
+    command.upgrade(alembic_config(fresh_url), "head")
+    app = create_app({"TESTING": True, "SECRET_KEY": "s", "BASE_URL": "http://localhost",
+                      "IN_CONTAINER": True, "SQLALCHEMY_DATABASE_URI": fresh_url})
+    try:
+        with app.app_context():
+            client = app.test_client()
+            sign_in(client, db.session.get(User, 11))
+            response = client.get("/api/tasting/coffees")
+            assert response.status_code == 200
+            assert "Ethiopia" in response.get_data(as_text=True)
+    finally:
+        with app.app_context():
+            db.session.remove()
+            db.engine.dispose()
+
+
+def _seed_group_admins(conn, group_id, admins):
+    """admins: (member_id, user_id, created_at); every member is an active admin with a user."""
+    conn.execute(sa.text(
+        "INSERT INTO groups (id, name, timezone, is_personal, created_at) "
+        f"VALUES ({group_id}, 'G{group_id}', 'UTC', false, '2026-01-01')"))
+    for member_id, user_id, created_at in admins:
+        conn.execute(sa.text(
+            "INSERT INTO users (id, email, display_name, created_at) "
+            f"VALUES ({user_id}, 'u{user_id}@x.co', 'U{user_id}', '2026-01-01')"))
+        conn.execute(sa.text(
+            "INSERT INTO members (id, group_id, display_name, user_id, role, active, created_at) "
+            f"VALUES ({member_id}, {group_id}, 'M{member_id}', {user_id}, 'admin', true, '{created_at}')"))
+
+
+def test_owner_backfill_falls_back_to_earliest_admin_elsewhere(fresh_url):
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_admins(conn, 1, [])   # lowest group: no admin with a user
+            conn.execute(sa.text(
+                "INSERT INTO members (id, group_id, display_name, user_id, role, active, created_at) "
+                "VALUES (1, 1, 'M1', NULL, 'admin', true, '2026-01-01')"))
+            _seed_group_admins(conn, 2, [(2, 22, "2026-01-09")])
+            _seed_group_admins(conn, 3, [(3, 23, "2026-01-05")])
+        command.upgrade(alembic_config(fresh_url), "0007")
+        assert _owner_ids(engine) == {23}
+    finally:
+        engine.dispose()
+
+
+def test_owner_backfill_prefers_lowest_group_over_older_admin_elsewhere(fresh_url):
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_admins(conn, 1, [(1, 21, "2026-02-01")])
+            _seed_group_admins(conn, 2, [(2, 22, "2026-01-01")])   # older, later group
+        command.upgrade(alembic_config(fresh_url), "0007")
+        assert _owner_ids(engine) == {21}
+    finally:
+        engine.dispose()

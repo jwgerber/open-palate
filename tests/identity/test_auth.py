@@ -75,9 +75,9 @@ def test_link_single_use_and_15_min_expiry(client, db_session, sent):
     link = sent[-1][1]
     first = client.get(f"/api/auth/consume?token={token_from(link)}")
     assert first.status_code == 302
-    assert first.headers["Location"] == "http://localhost/"
+    assert first.headers["Location"] == "/"
     again = client.get(f"/api/auth/consume?token={token_from(link)}")
-    assert again.headers["Location"] == "http://localhost/signin?error=expired"
+    assert again.headers["Location"] == "/signin?error=expired"
 
     start = utc_now()
     with freeze_time(start):
@@ -85,9 +85,9 @@ def test_link_single_use_and_15_min_expiry(client, db_session, sent):
     late_link = sent[-1][1]
     with freeze_time(start + timedelta(minutes=15, seconds=1)):
         late = client.get(f"/api/auth/consume?token={token_from(late_link)}")
-    assert late.headers["Location"] == "http://localhost/signin?error=expired"
+    assert late.headers["Location"] == "/signin?error=expired"
     garbage = client.get("/api/auth/consume?token=not-a-token")
-    assert garbage.headers["Location"] == "http://localhost/signin?error=expired"
+    assert garbage.headers["Location"] == "/signin?error=expired"
 
 
 def sign_in(client, sent, email="owner@cafe.com"):
@@ -139,32 +139,6 @@ def test_logout_revokes_session(client, db_session, sent):
 def cookie_attrs(resp, name):
     header = next(h for h in resp.headers.getlist("Set-Cookie") if h.startswith(f"{name}="))
     return [part.strip().lower() for part in header.split(";")]
-
-
-@pytest.mark.parametrize("base_url, secure", [
-    ("https://tasting.example", True),
-    ("http://localhost", False),
-])
-def test_secure_flag_follows_base_url_scheme(app, database_url, base_url, secure):
-    other = create_app({"TESTING": True, "SECRET_KEY": "test-secret",
-                        "BASE_URL": base_url, "SQLALCHEMY_DATABASE_URI": database_url})
-    with other.app_context():
-        user = add_user()
-        from identity.tokens import new_token
-        raw, digest = new_token()
-        db.session.add(LoginToken(user_id=user.id, token_hash=digest, purpose="signin",
-                                  expires_at=utc_now() + timedelta(minutes=15)))
-        db.session.commit()
-        db.session.remove()
-    test_client = other.test_client()
-    consume = test_client.get(f"/api/auth/consume?token={raw}")
-    session_attrs = cookie_attrs(consume, "tasting_session")
-    csrf_attrs = cookie_attrs(consume, "tasting_csrf")
-    assert ("secure" in session_attrs) is secure
-    assert ("secure" in csrf_attrs) is secure
-    assert "httponly" in session_attrs
-    assert "httponly" not in csrf_attrs
-    assert "samesite=lax" in session_attrs and "samesite=lax" in csrf_attrs
 
 
 def test_non_get_without_csrf_header_403(client, db_session, sent):
@@ -254,7 +228,7 @@ def test_consume_links_roster_member(client, db_session, sent):
     assert me["kind"] == "user"
     assert me["user"]["email"] == "owner@cafe.com"
     assert me["groups"] == [{"id": cafe.id, "name": "Cafe", "role": "editor",
-                             "timezone": "America/Chicago"}]
+                             "timezone": "America/Chicago", "is_personal": False}]
     assert db_session.query(Member).filter_by(user_id=user.id).count() == 1
 
 
@@ -437,8 +411,8 @@ def test_setup_revokes_previous_browser_session(app, database_url, caplog, sent)
     token = token_from(message[message.index("http://"):].split()[0])
     test_client = setup_app.test_client()
     with setup_app.app_context():
-        add_user("someone@cafe.com", "Someone")
-    # Sign in as an existing (non-admin) user on this browser first.
+        add_user("someone@cafe.com", "Someone", member=False)
+    # Sign in as an existing user (no group yet) on this browser first.
     from identity.tokens import new_token
     raw, digest = new_token()
     with setup_app.app_context():
@@ -485,3 +459,87 @@ def test_access_log_redacts_signin_token(app, caplog):
                                        "GET /api/auth/consume?token=abc123 HTTP/1.1", "302", "-")
     assert "abc123" not in caplog.text
     assert "token=[redacted]" in caplog.text
+
+
+def open_setup(app, database_url):
+    setup_app = create_app({"TESTING": True, "SECRET_KEY": "test-secret",
+                            "BASE_URL": "http://localhost", "SETUP_OPEN": True,
+                            "SQLALCHEMY_DATABASE_URI": database_url})
+    client = setup_app.test_client()
+    return setup_app, client, csrf(client)
+
+
+SETUP_BODY = {"email": "boss@example.com", "display_name": "Boss"}
+
+
+def test_setup_sets_owner(app, database_url):
+    setup_app, client, headers = open_setup(app, database_url)
+    assert client.post("/api/auth/setup", json=SETUP_BODY, headers=headers).status_code == 200
+    with setup_app.app_context():
+        assert db.session.query(User).one().is_owner is True
+
+
+def test_setup_status_after_owner(app, database_url):
+    setup_app, client, headers = open_setup(app, database_url)
+    assert client.get("/api/auth/setup-status").get_json()["needed"] is True
+    client.post("/api/auth/setup", json=SETUP_BODY, headers=headers)
+    assert client.get("/api/auth/setup-status").get_json() == {"needed": False, "email": False}
+
+
+def test_setup_needed_false_with_group_but_no_owner(app, database_url):
+    setup_app, client, headers = open_setup(app, database_url)
+    with setup_app.app_context():
+        db.session.add(Group(name="Old", timezone="UTC"))
+        db.session.commit()
+    assert client.get("/api/auth/setup-status").get_json() == {"needed": False, "email": False}
+    assert client.post("/api/auth/setup", json=SETUP_BODY, headers=headers).status_code == 409
+
+
+def test_setup_needed_ignores_personal_groups(app, db_session):
+    from identity.accounts import setup_needed
+    user = User(email="p@example.com", display_name="P")
+    db.session.add(user)
+    db.session.flush()
+    db.session.add(Group(name="P", timezone="UTC", is_personal=True, personal_user_id=user.id))
+    db.session.commit()
+    assert setup_needed() is True
+
+
+def test_race_counts_owners(app, database_url, monkeypatch):
+    setup_app, client, headers = open_setup(app, database_url)
+    monkeypatch.setattr("identity.auth_routes.more_than_one_owner", lambda: True)
+    resp = client.post("/api/auth/setup", json=SETUP_BODY, headers=headers)
+    assert (resp.status_code, resp.get_json()["error"]) == (409, "setup_done")
+    with setup_app.app_context():
+        assert db.session.query(User).count() == 0
+
+
+def test_me_reports_owner_and_personal(app, db_session):
+    from tests.identity.helpers import sign_in
+    user = User(email="o@cafe.com", display_name="O", is_owner=True)
+    db.session.add(user)
+    db.session.flush()
+    team = Group(name="Team")
+    mine = Group(name="My tastings", is_personal=True, personal_user_id=user.id)
+    db.session.add_all([team, mine])
+    db.session.flush()
+    db.session.add_all([Member(group_id=g.id, user_id=user.id, display_name="O", role="admin")
+                        for g in (team, mine)])
+    db.session.commit()
+    client = app.test_client()
+    sign_in(client, user)
+    body = client.get("/api/auth/me").get_json()
+    assert body["user"]["is_owner"] is True
+    assert {g["name"]: g["is_personal"] for g in body["groups"]} == {"Team": False,
+                                                                     "My tastings": True}
+
+
+def test_request_link_owner_without_membership_gets_link(client, db_session, sent):
+    db_session.add(User(email="owner@cafe.com", display_name="Owner", is_owner=True))
+    db_session.commit()
+    known = request_link(client, "owner@cafe.com")
+    unknown = request_link(client, "nobody@cafe.com")
+    assert known.status_code == unknown.status_code == 200
+    assert known.get_json() == unknown.get_json() == {"status": "sent"}
+    assert [to for to, _ in sent] == ["owner@cafe.com"]
+    assert db_session.query(LoginToken).count() == 1

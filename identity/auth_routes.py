@@ -7,10 +7,10 @@ from sqlalchemy.exc import IntegrityError
 
 from extensions import db, limiter
 from identity import mail
-from identity.accounts import (active_member_for_email, admin_exists, default_display_name,
+from identity.accounts import (active_member_for_email, default_display_name,
                                ensure_admin, find_user, issue_signin_link, link_roster_members,
-                               lock_first_admin_setup, more_than_one_admin, normalize_email,
-                               setup_token_valid, user_has_active_member)
+                               lock_first_admin_setup, more_than_one_owner, normalize_email,
+                               setup_needed, setup_token_valid, user_has_active_member)
 from identity.models import Group, LoginToken, Member, User
 from identity.sessions import current_session, end_session, start_user_session
 from identity.setup_access import setup_is_open, setup_password_ok
@@ -61,6 +61,7 @@ def request_link():
     # Same reply whether or not the address is known: no account enumeration.
     user = find_user(email)
     if user is not None and not (current_app.config.get("ALLOW_SIGNUP")
+                                 or user.is_owner
                                  or user_has_active_member(user)
                                  or active_member_for_email(email) is not None):
         user = None   # a known user nobody has an active place for gets no link
@@ -83,7 +84,6 @@ def request_link():
 @auth_bp.get("/consume")
 @handle_db_errors("Could not sign in")
 def consume():
-    base = current_app.config["BASE_URL"]
     raw = request.args.get("token", "")
     current_session()  # resolve (and maybe bump) before this request stages writes
     now = utc_now()
@@ -100,7 +100,7 @@ def consume():
     ).rowcount == 1
     if not claimed:
         db.session.rollback()
-        return redirect(f"{base}/signin?error=expired")
+        return redirect("/signin?error=expired")
 
     user = db.session.get(User, token.user_id)
     _revoke_current_session()
@@ -108,7 +108,7 @@ def consume():
     link_roster_members(user)
     set_cookie = start_user_session(user)
     db.session.commit()
-    return set_cookie(redirect(f"{base}/"))
+    return set_cookie(redirect("/"))
 
 
 @auth_bp.post("/setup")
@@ -118,7 +118,7 @@ def setup():
     data, error = get_json_object()
     if error:
         return error
-    if admin_exists():
+    if not setup_needed():
         return jsonify({"error": "setup_done"}), 409
     if not (setup_token_valid(data.get("token"))
             or setup_password_ok(data.get("setup_password"))
@@ -134,13 +134,13 @@ def setup():
                         "field": "display_name"}), 400
 
     lock_first_admin_setup()
-    if admin_exists():  # another setup finished while this one waited for the lock
+    if not setup_needed():  # another setup finished while this one waited for the lock
         db.session.rollback()
         return jsonify({"error": "setup_done"}), 409
     _revoke_current_session()
     user = ensure_admin(email, display_name)
     db.session.flush()
-    if more_than_one_admin():  # SQLite has no lock above: a racing setup got there first
+    if more_than_one_owner():  # SQLite has no lock above: a racing setup got there first
         db.session.rollback()
         return jsonify({"error": "setup_done"}), 409
     user.last_login_at = utc_now()
@@ -157,7 +157,7 @@ def setup_status():
     """Public. Says whether first-admin setup is needed and how this visitor may do
     it, and whether this copy can send email (so sign-in can say where links go)."""
     email = bool(current_app.config.get("SMTP_HOST"))
-    if admin_exists():
+    if not setup_needed():
         return jsonify({"needed": False, "email": email})
     return jsonify({"needed": True, "open": setup_is_open(), "email": email,
                     "password": bool(current_app.config.get("SETUP_PASSWORD"))})
@@ -170,7 +170,8 @@ def logout():
 
 
 def _group_dict(group: Group, role: str | None) -> dict:
-    return {"id": group.id, "name": group.name, "role": role, "timezone": group.timezone}
+    return {"id": group.id, "name": group.name, "role": role, "timezone": group.timezone,
+            "is_personal": group.is_personal}
 
 
 @auth_bp.get("/me")
@@ -189,7 +190,8 @@ def me():
         .where(Member.user_id == user.id, Member.active.is_(True)).order_by(Group.id)
     ).all()
     return jsonify({
-        "user": {"id": user.id, "email": user.email, "display_name": user.display_name},
+        "user": {"id": user.id, "email": user.email, "display_name": user.display_name,
+                 "is_owner": user.is_owner},
         "groups": [_group_dict(group, role) for group, role in rows],
         "kind": "user",
     })

@@ -145,3 +145,14 @@ def test_device_code(db_session):
 def test_tests_are_isolated_from_each_other(db_session):
     assert db_session.query(User).count() == 0
     assert db_session.query(Group).count() == 0
+
+
+def test_owner_and_personal_defaults(db_session):
+    from identity.models import InstallSettings
+    user, group = make_user("o@example.com"), make_group()
+    db_session.add_all([user, group])
+    db_session.commit()
+    assert user.is_owner is False
+    assert group.personal_user_id is None
+    assert db_session.get(InstallSettings, 1) is not None
+    assert db_session.get(InstallSettings, 1).public_url is None
