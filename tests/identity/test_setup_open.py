@@ -108,17 +108,17 @@ def test_token_still_works_from_public_peer(app, database_url):
 def test_status_before_admin(app, database_url):
     with_password = make_app(database_url, SETUP_PASSWORD="hunter22")
     assert get_status(with_password, "203.0.113.9").get_json() == {
-        "needed": True, "open": False, "password": True}
+        "needed": True, "open": False, "password": True, "email": False}
     local = make_app(database_url)
     assert get_status(local, "127.0.0.1").get_json() == {
-        "needed": True, "open": True, "password": False}
+        "needed": True, "open": True, "password": False, "email": False}
 
 
-def test_status_after_admin_says_only_not_needed(app, database_url):
+def test_status_after_admin_says_only_not_needed_and_email(app, database_url):
     setup_app = make_app(database_url, SETUP_PASSWORD="hunter22")
     with setup_app.app_context():
         make_member(make_group(), "a@example.com", role="admin")
-    assert get_status(setup_app, "127.0.0.1").get_json() == {"needed": False}
+    assert get_status(setup_app, "127.0.0.1").get_json() == {"needed": False, "email": False}
 
 
 def test_setup_after_admin_is_409_even_when_open(app, database_url):
@@ -165,3 +165,21 @@ def test_racing_setup_loses_with_409_and_leaves_one_group(app, database_url, mon
         assert len(db.session.execute(db.select(Group)).scalars().all()) == 1
         admins = db.session.execute(db.select(Member).where(Member.role == "admin")).scalars().all()
         assert [m.email for m in admins] == ["first@example.com"]
+
+
+def test_setup_status_reports_email_before_setup(app, database_url):
+    status = get_status(make_app(database_url), "203.0.113.9").get_json()
+    assert status["needed"] is True and status["email"] is False
+
+
+def test_setup_status_reports_email_after_setup(app, database_url):
+    setup_app = make_app(database_url, SMTP_HOST="smtp.example.test")
+    with setup_app.app_context():
+        make_member(make_group(), "boss@example.com", role="admin")
+    status = get_status(setup_app, "203.0.113.9").get_json()
+    assert status == {"needed": False, "email": True}
+
+
+def test_setup_status_email_false_when_smtp_host_blank(app, database_url):
+    status = get_status(make_app(database_url, SMTP_HOST=""), "203.0.113.9").get_json()
+    assert status["email"] is False
