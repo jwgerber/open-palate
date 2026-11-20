@@ -126,6 +126,17 @@ Pin a version tag (`ghcr.io/jwgerber/open-palate:v1.2.3`) instead of `latest` if
 
 The blueprint in `render.yaml` runs the image as a web service with a 1 GB disk at `/data`, generates `SECRET_KEY`, and asks for `BASE_URL`. Add a `SETUP_PASSWORD` env var in Render if you prefer it to the log link. A disk needs a paid instance (the Starter plan, about $7 per month plus a little for the disk). Edit the `image.url` in `render.yaml` to your published image, and add registry credentials in Render while the package is private. Read the setup link from Render's logs.
 
+### Free trial on Render
+
+`render.free.yaml` runs Open Palate on Render's free plan, to try it out, not to keep data. It builds from the `Dockerfile`, so it needs no published image, and it stores data in a free Render Postgres database. In the Render dashboard, choose **New > Blueprint**, pick this repo, set **Blueprint Path** to `render.free.yaml`, and enter `BASE_URL` (for example `https://open-palate-trial.onrender.com`) when asked. Then read the setup link from the service's logs.
+
+The free plan has limits:
+- **Expiry:** Render deletes a free database 30 days after it's created, with a 14-day grace period to upgrade it. Everything in it goes with it.
+- **Sleep:** the web service sleeps after 15 idle minutes, so the next visit waits about a minute.
+- **Size and hours:** the database holds 1 GB, and a workspace gets 750 free instance hours a month.
+
+To keep a trial's data, upgrade the database in Render before it expires, or move to `render.yaml`.
+
 ## Development
 
 `./scripts/dev.sh` does everything below in one step: it creates `.venv` and installs frontend packages on first run, migrates a SQLite database at `instance/dev.db`, and runs the API on port 8000 and the web app on http://localhost:5173. Ctrl-C stops both. `DATABASE_URL`, `SECRET_KEY` and `BASE_URL` from your environment override its defaults.

@@ -1,0 +1,33 @@
+# Render blueprint for a FREE trial. Not for keeping data: Render deletes a
+# free Postgres database 30 days after it is created (plus a 14-day grace
+# period), and a free web service sleeps after 15 idle minutes (the next visit
+# waits about a minute). For real use, deploy render.yaml (paid, with a disk).
+#
+# Create it in the Render dashboard: New > Blueprint, pick this repo, and set
+# Blueprint Path to render.free.yaml. Render builds the image from the
+# Dockerfile, so no published image or registry credentials are needed.
+services:
+  - type: web
+    name: open-palate-trial
+    runtime: docker
+    plan: free
+    region: oregon       # keep the same region as the database
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: open-palate-trial-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true   # required with Postgres; keep it stable or everyone is signed out
+      - key: WEB_CONCURRENCY
+        value: "1"            # the free instance has 512 MB
+      - key: BASE_URL
+        sync: false           # prompted on create, e.g. https://open-palate-trial.onrender.com
+
+databases:
+  - name: open-palate-trial-db
+    plan: free
+    region: oregon
+    postgresMajorVersion: "16"   # what CI tests against
