@@ -99,8 +99,14 @@ about 90 uses across 50 routes). The choice was how a request names its group:
 
 One-row table `install_settings`:
 - `team_creation`: `'anyone'` (default) or `'owner'`.
-- `public_url`: nullable. When set, every link and QR code the app makes uses it; when unset,
-  `BASE_URL` (unchanged behaviour). Owner-editable; must be an `http(s)` origin with no path.
+- `public_url`: nullable. Owner-editable; must be an `http(s)` origin with no path.
+- **One helper decides the app's address**: `public_url` when set, else `BASE_URL`. Every
+  place that reads `BASE_URL` today goes through it: sign-in links, the post-sign-in redirect
+  in `consume()`, the start-up setup link, `secure_cookies()`, and every new link and QR code.
+  (Without this, a phone signing in via `192.168.1.40` is redirected to `localhost`.)
+- **Open sign-up forces owner-only teams**: when `ALLOW_SIGNUP` is on, `team_creation` behaves
+  as `'owner'` whatever is stored, and the install settings screen says why. Otherwise anyone
+  who can reach the server could sign up and start teams.
 
 ### Groups
 
@@ -111,18 +117,29 @@ One-row table `install_settings`:
   roster screen, group link, invites or tablet codes; those routes return 404 there.
 - Group roles (admin, editor, member) are per group, as today, including "can't remove the
   last active admin".
+- **No groups yet**: a signed-in user with no active group (removed, unlinked, or signed up
+  with nothing to join) sees "You're not in a group yet" with "Make a personal space" and,
+  when the team-creation rule allows them, "Start a team", instead of the `no_group` error.
 
 ### Joining and signing in
 
 - **Group link** (`invites`, kind `group`): one active link per group; admins turn it on/off
   and make a new one (the old one stops working). Opening `/join/<token>` shows the group's
-  name and size. No expiry; revocable. The joiner either:
+  name and size. No expiry; revocable. *(Accepted trade-off: anyone holding the link can make
+  accounts in the group until an admin turns it off or makes a new one; rate limits slow this,
+  the "joined by link" flag shows it. Speed of joining was chosen over admin approval.)*
+  The joiner either:
   - **types a display name**: creates a user with **no email**, an active `member` row with
     `joined_via = 'link'`, and a user session; or
   - **picks "I'm on the list"** and taps their name from the group's active roster entries
-    that have no account (names only, nothing else about them). That entry is linked to a new
-    user (no email) and keeps its history; it gets `joined_via = 'claimed'` and a timestamp.
-    *(Decided by owner, 2026-11-20.)*
+    that have **no account and no email** (names only, nothing else about them). That entry is
+    linked to a new user (no email) and keeps its history; it gets `joined_via = 'claimed'`
+    and a timestamp. *(Decided by owner, 2026-11-20.)* Entries with an email are never offered:
+    they join by email sign-in or a personal invite, which prove who they are. (Offering them
+    would let a claimer take the entry, and the real person's later email sign-in would then
+    make a second, groupless account.)
+  - Accepted: anyone with the group link sees the names of unclaimed, email-less roster
+    entries. The link is meant for staff.
 - **Undoing a claim**: on a `claimed` entry an admin can **Unlink**, which detaches the user
   from that entry (the entry and its history stay; that user's sessions end). The
   claimed-by-link history is recorded on the member row so the flag shows until reviewed.
@@ -139,7 +156,9 @@ One-row table `install_settings`:
   roster entry is already linked to another user is refused.
 - **Another phone**: a signed-in user makes a hand-off code (`login_tokens` purpose
   `handoff`, 5 minutes, single use) shown as a QR; scanning it starts a session for the same
-  user. Users can list and sign out their other sessions.
+  user. Users can list and sign out their other sessions. Sessions gain a short `label`
+  (e.g. "iPhone · Safari") derived from the User-Agent when the session starts, no new
+  dependency, so the list is readable.
 - **Email** becomes optional: `users.email` nullable (still unique when set). Email sign-in
   works exactly as today for users who have one, when SMTP is configured.
 - The roster shows "Joined by link · <when>" on `joined_via = 'link'` members, with Remove
@@ -167,18 +186,21 @@ group link as a QR code, copy link, print a join card).
 ### Migration from one group
 
 One Alembic revision for phase 1 (more for phases 2–3 as needed):
-- `users.is_owner`; backfill the earliest-created admin member's user of the first
-  non-personal group (by `groups.id`) as owner.
+- `users.is_owner`; backfill as owner the user of the active admin member with the earliest
+  `members.created_at` (ties: lowest `members.id`) in the first non-personal group (lowest
+  `groups.id`). Admin members with no user are skipped.
 - `install_settings` with its one row (`team_creation = 'anyone'`, `public_url = NULL`).
 - No change to groups, members or tasting tables: existing rows are already group-scoped.
 
 ## Phases (each ships on its own, each its own plan)
 
-1. **Multi-group core**: `X-Group` resolution, owner, install settings API and screen,
-   starting teams and personal spaces, group switcher, `/g/:gid` frontend routes, `/f/:id`
-   redirect, migration. Cross-group test sweep.
-2. **Joining and sign-in**: `invites` table, group link and personal invites, join screens,
-   hand-off QR, session list, nullable email, joined-by-link flag.
+1a. **Multi-group core, backend**: `X-Group` resolution, owner and CLI, install settings
+   API, the address helper, groups and personal-space API, `/f/:id` lookup, migration,
+   cross-group test sweep. Ships alone: clients that send no header behave as today.
+1b. **Multi-group core, frontend**: `/g/:gid` routes, group-aware API client, group switcher,
+   start-a-team and personal-space screens, the no-groups screen, install settings screen.
+2. **Joining and sign-in**: `invites` table, group link and personal invites, "I'm on the
+   list", join screens, hand-off QR, session list with labels, nullable email, roster flags.
 3. **First-run wizard**: wizard screens, LAN address suggestion, `public_url`, Render
    `SETUP_PASSWORD`, README updates.
 
@@ -187,8 +209,8 @@ One Alembic revision for phase 1 (more for phases 2–3 as needed):
 - Flask/SQLAlchemy/Alembic, SQLite and Postgres both (CI runs both). React 19 + MUI 7.
   QR codes with the existing `qrcode.react` dependency; no new dependencies expected.
 - Device checks branch on `actor.kind`, never on `user_id`.
-- Gunicorn/werkzeug logs never record query strings or `/join/<token>` paths; extend
-  `identity/log_redact.py` to cover the join path.
+- Gunicorn/werkzeug logs never record query strings or token-bearing paths; extend
+  `identity/log_redact.py` to cover the join, personal-invite and hand-off paths.
 - Join and hand-off endpoints are rate-limited like the other public auth routes.
 - Tokens are stored as sha256 only (`identity/tokens.py`).
 
@@ -202,7 +224,11 @@ One Alembic revision for phase 1 (more for phases 2–3 as needed):
   taste; the earliest admin is owner.
 - Join flows: group link on/off/rotated, personal invite single-use and expiry, "join as"
   when signed in, hand-off expiry and single use, tokens absent from logs.
-- Claiming: only unlinked active entries are offered; a claimed entry can't be claimed again;
+- Address helper: with `public_url` set, the post-sign-in redirect and every link use it,
+  and `Secure` cookies follow its scheme.
+- Open sign-up: with `ALLOW_SIGNUP` on, a non-owner can't start a team even when the stored
+  rule is `'anyone'`.
+- Claiming: only unlinked, email-less active entries are offered; a claimed entry can't be claimed again;
   Unlink ends that user's sessions and keeps the history.
 - Recovery links: refused with `other_group` for a person in two groups, allowed for one.
 
