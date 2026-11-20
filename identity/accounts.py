@@ -9,6 +9,7 @@ from sqlalchemy import func, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from extensions import db
+from identity.address import app_address
 from identity.models import Group, LoginToken, Member, User
 from identity.tokens import new_token
 from utils import utc_now
@@ -80,7 +81,7 @@ def issue_signin_link(user: User, ttl: timedelta = LINK_TTL,
     expires_at = now + ttl
     db.session.add(LoginToken(user_id=user.id, token_hash=digest, purpose="signin",
                               expires_at=expires_at))
-    return f"{current_app.config['BASE_URL']}/api/auth/consume?token={raw}", expires_at
+    return f"{app_address()}/api/auth/consume?token={raw}", expires_at
 
 
 def link_roster_members(user: User) -> None:
@@ -194,7 +195,11 @@ def log_setup_link_if_needed(app) -> None:
         finally:
             db.session.remove()
         if needed:
-            link = f"{app.config['BASE_URL']}/setup?token={new_setup_token()}"
+            try:
+                address = app_address()
+            except SQLAlchemyError:
+                address = app.config["BASE_URL"]
+            link = f"{address}/setup?token={new_setup_token()}"
             # "From this machine" only helps when open setup can apply to it.
             open_from_here = (app.config.get("SETUP_OPEN") is None
                               and not app.config.get("IN_CONTAINER"))

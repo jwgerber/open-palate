@@ -10,7 +10,7 @@ import secrets
 from datetime import timedelta
 from typing import Callable
 
-from flask import Flask, Response, current_app, jsonify, request
+from flask import Flask, Response, has_request_context, jsonify, request
 from sqlalchemy import update
 from sqlalchemy.orm.attributes import set_committed_value
 
@@ -38,8 +38,10 @@ def _request_state() -> dict:
 
 
 def secure_cookies() -> bool:
-    """``Secure`` follows BASE_URL's scheme, so http://localhost dev works."""
-    return current_app.config["BASE_URL"].lower().startswith("https://")
+    """``Secure`` follows the request (ProxyFix makes it the browser's scheme), so
+    http://localhost and http://192.168.x.x work and https never loses the flag.
+    Outside a request (test helpers minting a cookie) there is no browser: not Secure."""
+    return has_request_context() and request.is_secure
 
 
 def _set_session_cookie(response: Response, raw: str, max_age: timedelta) -> None:

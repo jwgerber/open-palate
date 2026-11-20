@@ -83,7 +83,6 @@ def request_link():
 @auth_bp.get("/consume")
 @handle_db_errors("Could not sign in")
 def consume():
-    base = current_app.config["BASE_URL"]
     raw = request.args.get("token", "")
     current_session()  # resolve (and maybe bump) before this request stages writes
     now = utc_now()
@@ -100,7 +99,7 @@ def consume():
     ).rowcount == 1
     if not claimed:
         db.session.rollback()
-        return redirect(f"{base}/signin?error=expired")
+        return redirect("/signin?error=expired")
 
     user = db.session.get(User, token.user_id)
     _revoke_current_session()
@@ -108,7 +107,7 @@ def consume():
     link_roster_members(user)
     set_cookie = start_user_session(user)
     db.session.commit()
-    return set_cookie(redirect(f"{base}/"))
+    return set_cookie(redirect("/"))
 
 
 @auth_bp.post("/setup")

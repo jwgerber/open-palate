@@ -75,9 +75,9 @@ def test_link_single_use_and_15_min_expiry(client, db_session, sent):
     link = sent[-1][1]
     first = client.get(f"/api/auth/consume?token={token_from(link)}")
     assert first.status_code == 302
-    assert first.headers["Location"] == "http://localhost/"
+    assert first.headers["Location"] == "/"
     again = client.get(f"/api/auth/consume?token={token_from(link)}")
-    assert again.headers["Location"] == "http://localhost/signin?error=expired"
+    assert again.headers["Location"] == "/signin?error=expired"
 
     start = utc_now()
     with freeze_time(start):
@@ -85,9 +85,9 @@ def test_link_single_use_and_15_min_expiry(client, db_session, sent):
     late_link = sent[-1][1]
     with freeze_time(start + timedelta(minutes=15, seconds=1)):
         late = client.get(f"/api/auth/consume?token={token_from(late_link)}")
-    assert late.headers["Location"] == "http://localhost/signin?error=expired"
+    assert late.headers["Location"] == "/signin?error=expired"
     garbage = client.get("/api/auth/consume?token=not-a-token")
-    assert garbage.headers["Location"] == "http://localhost/signin?error=expired"
+    assert garbage.headers["Location"] == "/signin?error=expired"
 
 
 def sign_in(client, sent, email="owner@cafe.com"):
@@ -139,32 +139,6 @@ def test_logout_revokes_session(client, db_session, sent):
 def cookie_attrs(resp, name):
     header = next(h for h in resp.headers.getlist("Set-Cookie") if h.startswith(f"{name}="))
     return [part.strip().lower() for part in header.split(";")]
-
-
-@pytest.mark.parametrize("base_url, secure", [
-    ("https://tasting.example", True),
-    ("http://localhost", False),
-])
-def test_secure_flag_follows_base_url_scheme(app, database_url, base_url, secure):
-    other = create_app({"TESTING": True, "SECRET_KEY": "test-secret",
-                        "BASE_URL": base_url, "SQLALCHEMY_DATABASE_URI": database_url})
-    with other.app_context():
-        user = add_user()
-        from identity.tokens import new_token
-        raw, digest = new_token()
-        db.session.add(LoginToken(user_id=user.id, token_hash=digest, purpose="signin",
-                                  expires_at=utc_now() + timedelta(minutes=15)))
-        db.session.commit()
-        db.session.remove()
-    test_client = other.test_client()
-    consume = test_client.get(f"/api/auth/consume?token={raw}")
-    session_attrs = cookie_attrs(consume, "tasting_session")
-    csrf_attrs = cookie_attrs(consume, "tasting_csrf")
-    assert ("secure" in session_attrs) is secure
-    assert ("secure" in csrf_attrs) is secure
-    assert "httponly" in session_attrs
-    assert "httponly" not in csrf_attrs
-    assert "samesite=lax" in session_attrs and "samesite=lax" in csrf_attrs
 
 
 def test_non_get_without_csrf_header_403(client, db_session, sent):

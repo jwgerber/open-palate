@@ -17,7 +17,7 @@ def test_create_admin_prints_link(app, client, db_session):
     assert (member.role, member.user_id, member.group_id) == ("admin", user.id, group.id)
 
     resp = client.get(f"/api/auth/consume?token={match.group(1)}")
-    assert resp.headers["Location"] == "http://localhost/"
+    assert resp.headers["Location"] == "/"
     me = client.get("/api/auth/me").get_json()
     assert [(g["name"], g["role"]) for g in me["groups"]] == [("My café", "admin")]
 
