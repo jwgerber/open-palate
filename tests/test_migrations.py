@@ -127,3 +127,34 @@ def test_sample_flag_defaults_false_on_existing_rows(fresh_url):
             assert "is_sample" not in {c["name"] for c in sa.inspect(engine).get_columns(table)}
     finally:
         engine.dispose()
+
+
+def test_0006_clears_tasting_tags(fresh_url):
+    """The 2020 wheel replaced every key, so 0006 deletes saved notes and nothing else."""
+    config = alembic_config(fresh_url)
+    command.upgrade(config, "0005")
+    engine = sa.create_engine(normalize_database_url(fresh_url))
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text(
+                "INSERT INTO groups (id, name, timezone, is_personal, created_at) "
+                "VALUES (1, 'G', 'UTC', false, '2026-01-01')"))
+            conn.execute(sa.text(
+                "INSERT INTO tasting_coffees (id, group_id, name, kind, created_at, updated_at) "
+                "VALUES (1, 1, 'C', 'house', '2026-01-01', '2026-01-01')"))
+            conn.execute(sa.text(
+                "INSERT INTO tasting_flights (id, group_id, prep, opened_at, closes_at, created_at) "
+                "VALUES (1, 1, 'drip', '2026-01-01', '2026-01-01', '2026-01-01')"))
+            conn.execute(sa.text(
+                "INSERT INTO tastings (id, flight_id, coffee_id, taster_key, overall, created_at) "
+                "VALUES (1, 1, 1, 'k', 4, '2026-01-01')"))
+            conn.execute(sa.text(
+                "INSERT INTO tasting_tags (tasting_id, term, strength) VALUES "
+                "(1, 'Fruity>Berry>blueberry', 2), (1, 'Floral>Floral>jasmine', 3)"))
+        command.upgrade(config, "0006")
+        with engine.connect() as conn:
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM tasting_tags")).scalar() == 0
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM tastings")).scalar() == 1
+            assert conn.execute(sa.text("SELECT COUNT(*) FROM tasting_coffees")).scalar() == 1
+    finally:
+        engine.dispose()
