@@ -11,9 +11,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-mui': ['@mui/material', '@emotion/react', '@emotion/styled'],
+        // Vite 8 (Rolldown) takes only a function here, not the old name -> modules map.
+        manualChunks(id) {
+          if (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom)\//.test(id)) return 'vendor-react';
+          if (/node_modules\/(@mui\/material|@mui\/system|@mui\/utils|@emotion\/[^/]+)\//.test(id)) return 'vendor-mui';
+          return undefined;
         },
       },
     },
