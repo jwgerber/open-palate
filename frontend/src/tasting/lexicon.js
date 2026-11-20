@@ -1,10 +1,9 @@
 /**
- * Pure helpers over the SCA lexicon loaded from /api/content (content.js).
+ * Pure helpers over the flavor-wheel lexicon loaded from /api/content (content.js).
  *
- * A term's KEY is its path joined by KEY_SEP ("Fruity>Berry>blueberry") — the
- * same string the backend stores on tasting_tags.term. Labels repeat at
- * different depths in the SCA tree (Floral > Floral), so components must never
- * key on a bare label.
+ * A term's KEY is its path joined by KEY_SEP ("Fruit>Berry>blueberry") — the
+ * same string the backend stores on tasting_tags.term. Components key on the
+ * path, never a bare label, so a key always says where on the wheel a note sits.
  *
  * `tags` everywhere is `{ [key]: 2 | 3 }` — 2 picked, 3 strong.
  */

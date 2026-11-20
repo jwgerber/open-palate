@@ -1,11 +1,11 @@
 /**
- * The flavor wheel — a single-ring, drillable radial menu over the SCA/WCR
- * 2016 lexicon. One ring at a time: nine family wedges at the root, and a
+ * The flavor wheel — a single-ring, drillable radial menu over the 2020
+ * flavor-wheel lexicon. One ring at a time: the family wedges at the root, and a
  * tapped heading's children redraw to fill the whole circle, so every target
  * stays thumb-sized.
  *
- * Wedges use the SCA 2016 tier-1 hexes (FAMILY_HEX) — the one place the module
- * deliberately leaves the app palette, so the wheel reads as THE wheel.
+ * Wedges use the per-family hexes from the content file (FAMILY_HEX) — the one
+ * place the module leaves the app palette, so each family reads at a glance.
  *
  * Pick rules live in lexicon.cycleTag (cap 5, specific wins); this component
  * only reports taps: a heading wedge drills (`onPath`), a leaf wedge or the
@@ -42,7 +42,9 @@ const EASE = 'cubic-bezier(.4,0,.2,1)';
 const REDUCED = '@media (prefers-reduced-motion: reduce)';
 
 const pct = (v) => `${((v + VIEW / 2) / VIEW) * 100}%`;
-const isDarkFamily = (family) => family !== 'sour';
+// Light wedges (sweet, grain) take dark ink; the rest take white.
+const LIGHT_FAMILIES = new Set(['sweet', 'grain']);
+const isDarkFamily = (family) => !LIGHT_FAMILIES.has(family);
 // The drill cascade: a capped stagger so the widest ring (10 wedges) is fully
 // painted in ~320ms rather than 690ms — the most repeated tap in the flavor step.
 const STAGGER_MS = 20;
@@ -152,8 +154,8 @@ function FlavorWheel({ path, tags, onPath, onCycle }) {
           const inside = c.leaf ? 0 : (insideOf.get(c.key) || []).length;
           const g = arc(i, n);
           // A dim (unpicked leaf) wedge composites over the paper, so its label
-          // takes the paper's ink; a solid wedge takes white, except the yellow
-          // sour family which stays dark ink.
+          // takes the paper's ink; a solid wedge takes white, except the light
+          // families, which stay dark ink.
           const solid = !(c.leaf && !s);
           const color = solid ? (isDarkFamily(c.family) ? '#FFFFFF' : deep) : ink;
           return (

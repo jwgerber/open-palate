@@ -18,7 +18,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import FlavorWheel from './FlavorWheel';
 import TermChip from './TermChip';
 import Eyebrow from '../bits/Eyebrow';
-import { groupTags, describe, nodeAt, ALL_TERMS, MAX_TAGS_PER_CUP } from '../lexicon';
+import { groupTags, describe, nodeAt, ALL_TERMS, MAX_TAGS_PER_CUP, ROOT_KEYS } from '../lexicon';
 
 function FlavorPicker({ coffeeLabel, tags, onCycle, onRemove, path, onPath }) {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -93,7 +93,7 @@ function FlavorPicker({ coffeeLabel, tags, onCycle, onRemove, path, onPath }) {
         {count >= MAX_TAGS_PER_CUP
           ? `${MAX_TAGS_PER_CUP} of ${MAX_TAGS_PER_CUP} picked — remove one to add another`
           : path.length === 0
-            ? '9 families — tap one to open it'
+            ? `${ROOT_KEYS.length} families — tap one to open it`
             : `${children.length} under ${node?.label} · tap the center to take "${node?.label}" as is`}
       </Typography>
 
