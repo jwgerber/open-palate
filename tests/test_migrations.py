@@ -342,3 +342,45 @@ def test_upgraded_admin_still_works(fresh_url):
         with app.app_context():
             db.session.remove()
             db.engine.dispose()
+
+
+def _seed_group_admins(conn, group_id, admins):
+    """admins: (member_id, user_id, created_at); every member is an active admin with a user."""
+    conn.execute(sa.text(
+        "INSERT INTO groups (id, name, timezone, is_personal, created_at) "
+        f"VALUES ({group_id}, 'G{group_id}', 'UTC', false, '2026-01-01')"))
+    for member_id, user_id, created_at in admins:
+        conn.execute(sa.text(
+            "INSERT INTO users (id, email, display_name, created_at) "
+            f"VALUES ({user_id}, 'u{user_id}@x.co', 'U{user_id}', '2026-01-01')"))
+        conn.execute(sa.text(
+            "INSERT INTO members (id, group_id, display_name, user_id, role, active, created_at) "
+            f"VALUES ({member_id}, {group_id}, 'M{member_id}', {user_id}, 'admin', true, '{created_at}')"))
+
+
+def test_owner_backfill_falls_back_to_earliest_admin_elsewhere(fresh_url):
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_admins(conn, 1, [])   # lowest group: no admin with a user
+            conn.execute(sa.text(
+                "INSERT INTO members (id, group_id, display_name, user_id, role, active, created_at) "
+                "VALUES (1, 1, 'M1', NULL, 'admin', true, '2026-01-01')"))
+            _seed_group_admins(conn, 2, [(2, 22, "2026-01-09")])
+            _seed_group_admins(conn, 3, [(3, 23, "2026-01-05")])
+        command.upgrade(alembic_config(fresh_url), "0007")
+        assert _owner_ids(engine) == {23}
+    finally:
+        engine.dispose()
+
+
+def test_owner_backfill_prefers_lowest_group_over_older_admin_elsewhere(fresh_url):
+    engine = _engine_at(fresh_url, "0006")
+    try:
+        with engine.begin() as conn:
+            _seed_group_admins(conn, 1, [(1, 21, "2026-02-01")])
+            _seed_group_admins(conn, 2, [(2, 22, "2026-01-01")])   # older, later group
+        command.upgrade(alembic_config(fresh_url), "0007")
+        assert _owner_ids(engine) == {21}
+    finally:
+        engine.dispose()

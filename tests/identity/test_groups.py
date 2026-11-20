@@ -7,6 +7,13 @@ from identity.sessions import SESSION_COOKIE, start_device_session
 from tests.identity.helpers import csrf, make_group, make_member, sign_in
 
 
+TEAM_ONLY_ENDPOINTS = {
+    "admin.list_members", "admin.add_member", "admin.patch_member", "admin.copy_signin_link",
+    "admin.list_device_codes", "admin.create_device_code", "admin.revoke_device_code",
+    "admin.post_sample_data", "admin.delete_sample_data",
+}
+
+
 def make_owner(email="owner@cafe.com") -> User:
     user = User(email=email, display_name="Owner", is_owner=True)
     db.session.add(user)
@@ -126,12 +133,14 @@ def test_personal_space_has_no_roster_or_codes(app, db_session):
     headers = sign_in(client, user)
     pid = client.post("/api/groups/personal", json={}, headers=headers).get_json()["id"]
     scoped = {**headers, "X-Group": str(pid)}
-    assert client.get("/api/group/members", headers=scoped).status_code == 404
-    assert client.post("/api/group/members", json={"display_name": "x"}, headers=scoped).status_code == 404
-    assert client.post("/api/group/device-codes", json={}, headers=scoped).status_code == 404
-    assert client.get("/api/group/device-codes", headers=scoped).status_code == 404
-    assert client.post("/api/group/sample-data", json={}, headers=scoped).status_code == 404
-    assert client.delete("/api/group/sample-data", headers=scoped).status_code == 404
+    team_only_rules = [r for r in app.url_map.iter_rules() if r.endpoint in TEAM_ONLY_ENDPOINTS]
+    calls = [(r, m) for r in team_only_rules for m in r.methods - {"HEAD", "OPTIONS"}]
+    assert len(calls) == 9
+    for rule, method in calls:
+        path = rule.rule.replace("<int:member_id>", "1").replace("<int:code_id>", "1")
+        body = {"json": {"display_name": "x"}} if method in ("POST", "PATCH") else {}
+        resp = getattr(client, method.lower())(path, headers=scoped, **body)
+        assert resp.status_code == 404, f"{method} {rule.rule}: {resp.status_code}"
     assert client.get("/api/group", headers=scoped).status_code == 200
 
 

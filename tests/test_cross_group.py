@@ -636,6 +636,29 @@ def test_every_api_route_is_classified(app):
     assert not problems, "\n".join(problems)
 
 
+def _minimal_calls(app, endpoints):
+    """(method, path) for every rule of ``endpoints``, ids all 1: enough to reach the gate."""
+    return [(m, _ID_ARG.sub("1", r.rule)) for r in app.url_map.iter_rules()
+            if r.endpoint in endpoints for m in _methods(r)]
+
+
+def test_route_lists_match_their_gates(sweep, app):
+    """SIGNED_IN_ROUTES refuse a device (403); GROUP_ROUTES refuse no session (401)."""
+    failures = []
+    for method, path in _minimal_calls(app, SIGNED_IN_ROUTES):
+        r = sweep.call("device", method, path, json_body={})
+        if r.status_code != 403:
+            failures.append(f"device {method} {path}: {r.status_code}, want 403")
+    anonymous = app.test_client()
+    headers = {"X-CSRF-Token": (anonymous.get("/api/auth/me"),
+                                anonymous.get_cookie("tasting_csrf").value)[1]}
+    for method, path in _minimal_calls(app, GROUP_ROUTES):
+        r = getattr(anonymous, method.lower())(path, headers=headers, json={})
+        if r.status_code != 401:
+            failures.append(f"no session {method} {path}: {r.status_code}, want 401")
+    assert not failures, "\n".join(failures)
+
+
 def test_id_routes_positive_control(sweep, app):
     """B's ids, as U acting in B, reach their target: never 404."""
     failures = []
