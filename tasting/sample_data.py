@@ -1,5 +1,6 @@
-"""Sample data for a new group: a few invented coffees, three sample tasters and one
-closed shared flight, so the Coffees and palate pages have something to show.
+"""Sample data for a new group: a few invented coffees, three sample tasters and two
+closed blind flights (a basic tasting and a cupping on the advanced sheet), so the
+Coffees, palate and cupping summary pages have something to show.
 
 Everything goes through the real repository validation, so a sample read obeys every
 rule a real read does. Every row is flagged ``is_sample`` (a flight's tastings belong
@@ -10,6 +11,7 @@ from identity.access import Actor
 from identity.models import Member
 from tasting import flights_repository as flights
 from tasting import repository as repo
+from tasting.enums import ADV_CATEGORIES
 from tasting.models import Tasting, TastingCoffee, TastingFlight, TastingFlightCoffee
 
 SAMPLE_MEMBERS = ("Sample · Robin", "Sample · Sam", "Sample · Jo")
@@ -48,6 +50,24 @@ READS = (
     ((2, 3, 5, 3, 3, ("Chocolate>dark chocolate", "Nut>almond")),
      (2, 3, 5, 4, 3, ("Chocolate>dark chocolate", "Chocolate>milk chocolate")),
      (1, 2, 5, 3, 2, ("Chocolate>dark chocolate", "Nut>hazelnut"))),
+)
+
+
+# The cupping: three of the coffees on the advanced sheet. Scores follow
+# ADV_CATEGORIES (aroma, flavour, aftertaste, acidity, sweetness, bitterness,
+# weight, texture, afterfeel, balance); 7.0 is a D/Q. One D/Q is included so the
+# summary shows how a disqualified category reads.
+CUPPING_COFFEES = (0, 1, 3)   # indexes into COFFEES: Morning Ridge, Bramble Lane, Cinder Hill
+CUPPING_READS = (
+    (((9.0, 9.0, 8.5, 9.0, 8.5, 8.5, 8.0, 8.5, 8.5, 9.0), "yes", ("Floral>jasmine", "Fruit>Citrus>lemon")),
+     ((8.5, 9.0, 8.5, 9.0, 8.5, 8.5, 8.0, 8.5, 8.5, 8.5), "yes", ("Floral>jasmine", "Floral>orange blossom")),
+     ((8.5, 8.5, 8.0, 8.5, 8.5, 8.0, 8.0, 8.0, 8.0, 8.5), "maybe", ("Fruit>Citrus>lemon", "Floral>lemongrass"))),
+    (((9.0, 9.5, 9.0, 9.5, 9.0, 8.5, 8.5, 9.0, 8.5, 9.0), "yes", ("Fruit>Berry>blackberry", "Fruit>Berry>currant")),
+     ((9.0, 9.0, 8.5, 9.0, 8.5, 8.5, 8.5, 8.5, 8.5, 8.5), "yes", ("Fruit>Berry>blackberry", "Fruit>Grape>red grape")),
+     ((8.5, 9.0, 8.5, 9.5, 8.5, 8.0, 8.5, 8.5, 8.0, 8.5), "maybe", ("Fruit>Berry>currant", "Fruit>Citrus>grapefruit"))),
+    (((8.0, 8.0, 7.5, 7.5, 8.0, 7.5, 8.5, 8.0, 7.5, 8.0), "maybe", ("Chocolate>dark chocolate", "Roast>toast")),
+     ((8.0, 7.5, 7.5, 7.5, 7.5, 7.0, 8.5, 7.5, 7.5, 7.5), "no", ("Chocolate>dark chocolate", "Roast>smoky")),
+     ((8.0, 8.0, 7.5, 8.0, 8.0, 7.5, 8.0, 8.0, 8.0, 8.0), "maybe", ("Chocolate>bittersweet chocolate", "Nut>walnut"))),
 )
 
 
@@ -98,6 +118,22 @@ def _add_flight(group_id: int, admin: Actor, coffees: list, members: list) -> Ta
     return flight
 
 
+def _add_cupping(group_id: int, admin: Actor, coffees: list, members: list) -> TastingFlight:
+    cups = [coffees[i] for i in CUPPING_COFFEES]
+    flight = flights.create_flight(
+        group_id, {"coffee_ids": [c.id for c in cups], "prep": "cupping", "shared": True, "blind": True,
+                   "sheet": "advanced", "adv_step": 0.5, "name": "Sample cupping"},
+        repo.TasterIdentity.from_actor(admin))
+    flight.is_sample = True
+    for t, member in enumerate(members):
+        entries = [{"position": i + 1, **dict(zip(ADV_CATEGORIES, r[t][0])), "bar_vote": r[t][1],
+                    "tags": {k: 2 for k in r[t][2]}}
+                   for i, r in enumerate(CUPPING_READS)]
+        flights.log_tastings(flight, entries, _sample_taster(member))
+    flights.close_flight(flight)
+    return flight
+
+
 def _still_used(coffee_id: int) -> bool:
     """Any read or any flight cup (a real open flight may hold it unread) keeps a coffee."""
     return any(db.session.execute(db.select(m.coffee_id).where(m.coffee_id == coffee_id).limit(1)).first()
@@ -118,7 +154,8 @@ def load_sample_data(group_id: int, admin: Actor) -> dict:
         coffees.append(coffee)
     members = _add_members(group_id)
     _add_flight(group_id, admin, coffees, members)
-    return {"coffees": len(coffees), "members": len(members), "flights": 1}
+    _add_cupping(group_id, admin, coffees, members)
+    return {"coffees": len(coffees), "members": len(members), "flights": 2}
 
 
 def remove_sample_data(group_id: int) -> dict:

@@ -30,14 +30,14 @@ def gid(w):
 def test_load_adds_the_set(w):
     r = load(w)
     assert r.status_code == 201
-    assert r.get_json() == {"coffees": 5, "members": 3, "flights": 1}
+    assert r.get_json() == {"coffees": 5, "members": 3, "flights": 2}
     coffees = TastingCoffee.query.filter_by(group_id=gid(w)).all()
     assert len(coffees) == 5 and all(c.is_sample for c in coffees)
     members = Member.query.filter_by(group_id=gid(w), is_sample=True).all()
     assert sorted(m.display_name for m in members) == ["Sample · Jo", "Sample · Robin", "Sample · Sam"]
     assert all(m.email is None and m.user_id is None and m.role == "member" for m in members)
-    (flight,) = TastingFlight.query.filter_by(group_id=gid(w)).all()
-    assert flight.is_sample and flight.is_shared and flight.is_blind and flight.sheet == "basic"
+    flight = TastingFlight.query.filter_by(group_id=gid(w), sheet="basic").one()
+    assert flight.is_sample and flight.is_shared and flight.is_blind
     assert not flight.is_open and flight.closed_at is not None
     assert flight.host_member_id == w.member_id("admin")
     assert len(flight.coffees) == 4
@@ -46,9 +46,30 @@ def test_load_adds_the_set(w):
     assert all(2 <= len(t.tags) <= 3 for t in flight.tastings)
 
 
+def test_load_adds_a_closed_blind_cupping_on_the_advanced_sheet(w):
+    load(w)
+    cupping = TastingFlight.query.filter_by(group_id=gid(w), sheet="advanced").one()
+    assert cupping.is_sample and cupping.is_shared and cupping.is_blind and not cupping.is_open
+    assert cupping.prep == "cupping" and float(cupping.adv_step) == 0.5
+    assert len(cupping.coffees) == 3 and len(cupping.tastings) == 9
+    reads = cupping.tastings
+    assert all(t.sheet == "advanced" and t.bar_vote in ("yes", "maybe", "no") for t in reads)
+    assert {t.bar_vote for t in reads} == {"yes", "maybe", "no"}
+    assert any(float(t.adv_bitterness) == 7.0 for t in reads)          # one D/Q to show how it reads
+    assert all(t.tags for t in reads)
+
+
+def test_cupping_coffee_shows_a_cupping_score(w):
+    load(w)
+    cupping = TastingFlight.query.filter_by(group_id=gid(w), sheet="advanced").one()
+    cid = cupping.coffees[0].coffee_id
+    row = {c["id"]: c for c in w.get("admin", "/coffees").get_json()["coffees"]}[cid]
+    assert row["cupping"] is not None
+
+
 def test_coffee_pages_show_consensus(w):
     load(w)
-    flight = TastingFlight.query.filter_by(group_id=gid(w)).one()
+    flight = TastingFlight.query.filter_by(group_id=gid(w), sheet="basic").one()
     cid = flight.coffees[0].coffee_id
     body = w.get("admin", f"/coffees/{cid}").get_json()
     assert body["consensus"]["n"] == 3
@@ -88,7 +109,7 @@ def test_remove_deletes_only_sample_rows(w):
     assert w.solo([real_coffee], who="member").status_code == 201
     r = remove(w)
     assert r.status_code == 200
-    assert r.get_json() == {"flights": 1, "members": 3, "coffees": 5, "kept_coffees": 0}
+    assert r.get_json() == {"flights": 2, "members": 3, "coffees": 5, "kept_coffees": 0}
     assert db.session.get(TastingCoffee, real_coffee.id) is not None
     assert db.session.get(Member, real_member.id) is not None
     assert TastingFlight.query.filter_by(is_sample=False).count() == 1

@@ -63,7 +63,7 @@ export default function SampleDataCard({ onLoaded, hasCoffees }) {
     <Card>
       <Typography variant="h3" sx={{ fontSize: 18 }}>Explore with sample data</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        Adds 5 example coffees and a finished blind flight tasted by three sample tasters. Remove it any time in Group settings.
+        Adds 5 example coffees and two finished blind flights tasted by three sample tasters, one of them a cupping on the advanced sheet. Remove it any time in Group settings.
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
       <Button variant="outlined" onClick={load} disabled={busy || loaded} sx={{ minHeight: 44 }}>Load sample data</Button>
