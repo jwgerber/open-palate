@@ -145,7 +145,9 @@ Tests: `pytest` for the backend (set `TEST_DATABASE_URL` to also run on Postgres
 
 ## Flavor wheel
 
-The flavor wheel is inspired by the SCA / World Coffee Research Coffee Taster's Flavor Wheel (2016), extended with notes from the Counter Culture Coffee Taster's Flavor Wheel (2020). The terms live in `content/lexicon.json`.
+The flavor notes are the Counter Culture Coffee Taster's Flavor Wheel (©2020 Counter Culture Coffee), which Counter Culture offers as a free tool for non-commercial use with credit. See [counterculturecoffee.com/tasterswheel](https://counterculturecoffee.com/tasterswheel).
+
+What we changed: the families, groups, notes and their order are as published. Open Palate shows the notes in lowercase, and the colors and the tap-to-drill layout are its own. The terms live in `content/lexicon.json`.
 
 ## License
 

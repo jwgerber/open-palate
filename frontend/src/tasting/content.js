@@ -1,5 +1,5 @@
 /**
- * The server's content (GET /api/content: the SCA flavor wheel plus the two
+ * The server's content (GET /api/content: the flavor wheel plus the two
  * score sheets' wording) as module-level live bindings.
  *
  * The app loads it once at start (see `useContent` / ContentGate) and calls

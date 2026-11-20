@@ -32,7 +32,7 @@ SLUGS = {"fruit", "chocolate", "sweet", "nut", "grain", "roast", "spice", "savor
 
 
 class TestTreeShape:
-    """The 2020 Counter Culture wheel, word for word (spec 2026-11-20)."""
+    """The 2020 wheel credited in the README, word for word (spec 2026-11-20)."""
 
     def test_ten_families_in_wheel_order(self, lex):
         assert [n["label"] for n in lex.lexicon["tree"]] == FAMILIES

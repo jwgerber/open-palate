@@ -24,7 +24,7 @@ export const hexOf = (key) => FAMILY_HEX[familyOf(key)] ?? '#8B8593';
 const hexToRgb = (hex) => hex.replace('#', '').match(/.{2}/g).map((h) => parseInt(h, 16));
 /**
  * Family tint for the current theme mode. The light tints are fixed pastels
- * that vanish under dark-mode ink, so dark mode uses the SCA hue at low alpha
+ * that vanish under dark-mode ink, so dark mode uses the family hue at low alpha
  * over the dark paper instead — same family colour, readable with light text.
  */
 export function tintFor(key, mode = 'light') {

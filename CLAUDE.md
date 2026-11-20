@@ -22,7 +22,7 @@ CI (`.github/workflows/ci.yml`) runs both suites on SQLite and Postgres. `image.
 
 ## Rules
 
-- **The flavor-wheel lexicon (`content/lexicon.json`) stays identical to the original app's.** Do not edit terms, order or structure.
+- **The flavor-wheel lexicon (`content/lexicon.json`) matches the published 2020 wheel credited in the README, exactly.** Do not add, drop or reword notes, or change their grouping or order. (Changed 2026-11-20; it no longer tracks the original app's lexicon.)
 - **No names of the original app, shop or flavor-wheel publishers in the code or docs**, except the attribution in the README's Flavor wheel section. `tests/tasting/test_content.py` scans for them using sha256 hashes. Never write the banned names into source to make the scan pass.
 - **The repo is private, so don't make it public or push anywhere new** until owner permission from the flavor-wheel and cupping-sheet publishers is in hand.
 - One-way fork: nothing here is synced back to the original app, and nothing there is pulled in.

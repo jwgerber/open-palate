@@ -1,19 +1,19 @@
-# Flavor wheel: switch to the Counter Culture 2020 wheel
+# Flavor wheel: switch to the 2020 wheel
 
 Status: draft for owner approval. Tier: Full (migration that deletes data, and the lexicon rule changes).
 
 ## Why
 
-The current wheel is the SCA/WCR 2016 lexicon with Counter Culture notes grafted into it. In practice it is hard to use: about 30 notes are panel or lab words (butyric acid, vanillin, "overall sweet"), near-duplicates split the same note (grape / white grape; cherry under "Other fruit" while "Stone fruit" exists), 14 of the 16 defects are repeated as flavor notes, and some groups are odd (teas under Floral, meaty under Papery / Musty). Counter Culture's wheel names notes the way a café talks and avoids most of this.
+The current wheel is a 2016 lexicon with notes from the 2020 wheel grafted into it. In practice it is hard to use: about 30 notes are panel or lab words (butyric acid, vanillin, "overall sweet"), near-duplicates split the same note (grape / white grape; cherry under "Other fruit" while "Stone fruit" exists), 14 of the 16 defects are repeated as flavor notes, and some groups are odd (teas under Floral, meaty under Papery / Musty). the 2020 wheel names notes the way a café talks and avoids most of this.
 
-A second reason: with one wheel the content rests on one publisher's terms instead of two. Counter Culture's terms are "a free tool for non-commercial use", with credit and an indication of changes. That is still not an open license, so the permission request stays open (see Constraints).
+A second reason: with one wheel the content rests on one publisher's terms instead of two. The publisher's terms are "a free tool for non-commercial use", with credit and an indication of changes. That is still not an open license, so the permission request stays open (see Constraints).
 
 ## Goals
 
-- `content/lexicon.json` holds exactly the Counter Culture Coffee Taster's Flavor Wheel (©2020, English PDF): its 10 families, the 8 groups under Fruit, and its 124 notes, with the same words, the same grouping and the same order. Nothing is added or dropped.
+- `content/lexicon.json` holds exactly the 2020 Taster's Flavor Wheel (©2020, English PDF): its 10 families, the 8 groups under Fruit, and its 124 notes, with the same words, the same grouping and the same order. Nothing is added or dropped.
 - Every place that shows or reads notes keeps working with the new wheel: the picker, search, the auto sentence, reveal and consensus, the coffee list, My palate, printed sheets, the paper-sheet scan, and the sample data.
 - Saved notes from the old wheel are deleted, in the database and in unfinished tastings saved on a device.
-- The repo's rules say the lexicon matches Counter Culture's published wheel. The rule that it matches the original app's lexicon is retired.
+- The repo's rules say the lexicon matches the published 2020 wheel. The rule that it matches the original app's lexicon is retired.
 
 ## Non-goals
 
@@ -25,8 +25,8 @@ A second reason: with one wheel the content rests on one publisher's terms inste
 
 ## Anti-goals
 
-- Any note that is not on Counter Culture's wheel, or a misspelled one.
-- Copying Counter Culture's artwork: colors, ring layout or typography. Only the words and their grouping come from the wheel.
+- Any note that is not on the 2020 wheel, or a misspelled one.
+- Copying the publisher's artwork: colors, ring layout or typography. Only the words and their grouping come from the wheel.
 - Any regression of the spec's invariants. Blind stays blind, reveal returns 409 while open, consensus needs 3, and one read per cup.
 
 ## Constraints
@@ -34,8 +34,8 @@ A second reason: with one wheel the content rests on one publisher's terms inste
 - The lexicon is data. The backend builds `term_index` from the file (`tasting/content.py`), and the frontend gets the same file from the content endpoint (`frontend/src/tasting/content.js`). The wheel UI already handles any depth: a node with no children is a pickable leaf.
 - A saved note's key is its label path joined by `>` (for example `Fruit>Berry>blueberry`), stored in `tasting_tags.term` (String(80)). Keys must stay unique and fit in 80 characters.
 - Migrations must run on SQLite and Postgres, and `tests/test_migrations.py` must pass.
-- The README's Flavor wheel section is the attribution. Counter Culture's terms ask for credit and an indication of changes.
-- Counter Culture's terms are non-commercial and the AGPL allows commercial use. This is unresolved until the owner hears back, and the repo stays private until then (unchanged).
+- The README's Flavor wheel section is the attribution. The publisher's terms ask for credit and an indication of changes.
+- The publisher's terms are non-commercial and the AGPL allows commercial use. This is unresolved until the owner hears back, and the repo stays private until then (unchanged).
 
 ## Approaches considered (for existing saved notes)
 
@@ -46,11 +46,11 @@ A second reason: with one wheel the content rests on one publisher's terms inste
 ## Decisions
 
 Owner decisions:
-- Exact match of Counter Culture's wheel ("A"), with no additions.
+- Exact match of the 2020 wheel ("A"), with no additions.
 - Clear all saved notes. No translation.
 
 My calls (the owner can override):
-- **Colors:** each family gets an Open Palate color. Counter Culture's hexes are not copied. The colors must be distinct from each other and keep white labels readable (the wheel currently special-cases the yellow `sour` family for dark labels; any light color needs the same treatment).
+- **Colors:** each family gets an Open Palate color. the publisher's hexes are not copied. The colors must be distinct from each other and keep white labels readable (the wheel currently special-cases the yellow `sour` family for dark labels; any light color needs the same treatment).
 - **Casing:** family and group labels are in title case as printed ("Fruit", "Stone Fruit"). Notes are in lowercase, matching how the app shows notes today ("blood orange", "baker's chocolate").
 - **Slashes:** use the app's existing style, with spaces around them: "Apple / Pear", "Vegetal / Earthy / Herb", "licorice / anise", "rose / rosewater".
 - **Family slugs** (the `family` field and the `families` map keys): `fruit`, `chocolate`, `sweet`, `nut`, `grain`, `roast`, `spice`, `savory`, `vegetal`, `floral`.
@@ -93,7 +93,7 @@ Where a label repeats at different depths, keys still differ by path. No label r
 - **Sample data** (`tasting/sample_data.py`): rewrite its tag keys onto the new wheel, keeping the same character for each coffee: floral and citrus, berry, honey and nut, and so on.
 - **The picker:** the hint "9 families — tap one to open it" uses the real family count. Update the comment in `FlavorWheel.jsx` that names the SCA wheel. Check that the yellow-label special case (`isDarkFamily`) matches whichever new family colors are light.
 - **Tests:** rewrite `tests/tasting/test_content.py` for the new shape (10 / 89 / 43, family order, key examples, a slug and hex example), and update every frontend test and fixture that uses old keys (`frontend/src/tasting/__tests__/*`, `helpers.jsx`). Add a test that the migration leaves `tasting_tags` empty, and one that a restored draft drops unknown tags.
-- **Docs and rules:** update the README's Flavor wheel section to credit Counter Culture's 2020 wheel and indicate the changes (lowercase notes and our own colors and layout, with words and grouping as published). Rewrite the CLAUDE.md lexicon rule to "matches Counter Culture's published 2020 wheel exactly; do not add, drop or reword notes", and the matching line in CONTRIBUTING.md (on the open `claude/oss-readiness` branch; whichever lands second fixes it). Update the Content-as-data section of `docs/spec.md` so it names one publisher for the wheel.
+- **Docs and rules:** update the README's Flavor wheel section to credit the 2020 wheel and indicate the changes (lowercase notes and our own colors and layout, with words and grouping as published). Rewrite the CLAUDE.md lexicon rule to "matches the published 2020 wheel exactly; do not add, drop or reword notes", and the matching line in CONTRIBUTING.md (on the open `claude/oss-readiness` branch; whichever lands second fixes it). Update the Content-as-data section of `docs/spec.md` so it names one publisher for the wheel.
 
 More of my calls:
 - **The PDF wins.** If the PDF's words differ from the table above, use the PDF and adjust the test counts.

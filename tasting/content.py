@@ -1,6 +1,6 @@
 """Content as data: the flavor wheel and the score-sheet wording.
 
-``content/lexicon.json`` (the SCA / World Coffee Research 2016 wheel and the
+``content/lexicon.json`` (the 2020 flavor wheel credited in the README, and the
 labels for the fixed enums) and ``content/forms.json`` (labels and wording for
 the two sheets) are read once at startup. Scoring rules do NOT live here: the
 1-5 and 7.5-10 ranges, the 7.0 disqualified value and the required bar vote
