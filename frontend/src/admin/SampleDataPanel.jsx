@@ -22,7 +22,7 @@ export default function SampleDataPanel({ onRemoved }) {
     <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
       <Typography variant="h2" sx={{ fontSize: 18, mb: 0.5 }}>Sample data</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Example coffees, tasters and a flight are loaded in this group.
+        Example coffees, tasters and two flights are loaded in this group.
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
       <Button variant="outlined" color="error" onClick={() => setConfirming(true)} disabled={busy}>Remove sample data</Button>

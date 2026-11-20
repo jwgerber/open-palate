@@ -269,11 +269,14 @@ directly). The `Secure` cookie flag follows `BASE_URL`'s scheme, so
 - Postgres: the database host's own backups; the README says so.
 - Restore: stop the container, put the backup at `/data/tasting.db`, start.
 
-**One-click Render deploy**: the repo ships a `render.yaml` and a "Deploy to
-Render" button in the README. The blueprint: one web service from the published
-image, a 1 GB disk on `/data` (needs a paid instance; the README states the
-cost), `SECRET_KEY` generated, `BASE_URL` prompted, health check `/healthz`.
-The owner reads the setup link from Render's logs.
+**One-click Render deploy** (revised 2026-11-20, see
+`docs/specs/2026-11-20-render-trial-access-design.md`): the "Deploy to Render"
+button in the README deploys `render.yaml`, a free trial: one web service built
+from the Dockerfile plus a free Render Postgres database, `SECRET_KEY` and
+`SETUP_PASSWORD` generated, `BASE_URL` taken from Render's `RENDER_EXTERNAL_URL`,
+health check `/healthz`. `render.paid.yaml` is the real deployment: the published
+image, a 1 GB disk on `/data` (needs a paid instance; the README states the cost),
+`SECRET_KEY` generated, `BASE_URL` prompted.
 
 **Image and updates**: published to GitHub Container Registry with a version
 tag and `latest`. Update = pull and restart; migrations run on start. The

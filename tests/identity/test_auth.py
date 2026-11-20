@@ -483,7 +483,7 @@ def test_setup_status_after_owner(app, database_url):
     setup_app, client, headers = open_setup(app, database_url)
     assert client.get("/api/auth/setup-status").get_json()["needed"] is True
     client.post("/api/auth/setup", json=SETUP_BODY, headers=headers)
-    assert client.get("/api/auth/setup-status").get_json() == {"needed": False}
+    assert client.get("/api/auth/setup-status").get_json() == {"needed": False, "email": False}
 
 
 def test_setup_needed_false_with_group_but_no_owner(app, database_url):
@@ -491,7 +491,7 @@ def test_setup_needed_false_with_group_but_no_owner(app, database_url):
     with setup_app.app_context():
         db.session.add(Group(name="Old", timezone="UTC"))
         db.session.commit()
-    assert client.get("/api/auth/setup-status").get_json() == {"needed": False}
+    assert client.get("/api/auth/setup-status").get_json() == {"needed": False, "email": False}
     assert client.post("/api/auth/setup", json=SETUP_BODY, headers=headers).status_code == 409
 
 

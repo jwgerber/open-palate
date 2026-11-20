@@ -41,7 +41,7 @@ Environment variables:
 | Variable | Notes |
 |---|---|
 | `SECRET_KEY` | Optional with SQLite: when unset, one is generated on first start and kept in a file named `secret_key` next to the database file (mode 0600), so it lasts as long as the data. Required with Postgres (start-up fails without it). Keep it stable; changing it signs everyone out. |
-| `BASE_URL` | Default `http://localhost:8000`, with a warning. Set it to the public address on any real deployment. |
+| `BASE_URL` | Default `http://localhost:8000`, with a warning. On Render it defaults to the service's own address (`RENDER_EXTERNAL_URL`). Set it to the public address on any other real deployment, or for a custom domain. |
 | `SETUP_OPEN` | `true` lets anyone who can reach the app create the first admin; use it only with a port bound to `127.0.0.1`. `false` never opens setup by itself, even for local visitors. Unset (default): open only to local visitors when running outside Docker. |
 | `SETUP_PASSWORD` | Optional. A passphrase that lets a visitor create the first admin from the setup page. |
 | `DATABASE_URL` | Unset: SQLite at `/data/tasting.db`. Set: Postgres, e.g. `postgresql://user:pass@host/db`. |
@@ -72,7 +72,7 @@ docker exec --user 10001 tasting flask create-admin you@example.com
 
 Setup requests are limited to 5 a minute. Setup closes once there is an owner or a team. If every admin is lost, run `flask create-admin` again to recover (see the server commands below).
 
-Next, in the Log or Coffees tab an admin of an empty group can **load sample data** (five coffees, three sample tasters and a closed flight) to see how the app looks. Remove it in Group settings.
+Next, in the Log or Coffees tab an admin of an empty group can **load sample data** (five coffees, three sample tasters, a closed tasting and a closed cupping on the advanced sheet) to see how the app looks. Remove it in Group settings.
 
 ## Groups and the owner
 
@@ -136,18 +136,33 @@ Pin a version tag (`ghcr.io/jwgerber/open-palate:v1.2.3`) instead of `latest` if
 
 ## Deploy to Render
 
-The blueprint in `render.yaml` runs the image as a web service with a 1 GB disk at `/data`, generates `SECRET_KEY`, and asks for `BASE_URL`. Add a `SETUP_PASSWORD` env var in Render if you prefer it to the log link. A disk needs a paid instance (the Starter plan, about $7 per month plus a little for the disk). Edit the `image.url` in `render.yaml` to your published image, and add registry credentials in Render while the package is private. Read the setup link from Render's logs.
+### Free trial (one click)
 
-### Free trial on Render
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/jwgerber/open-palate)
 
-`render.free.yaml` runs Open Palate on Render's free plan, to try it out, not to keep data. It builds from the `Dockerfile`, so it needs no published image, and it stores data in a free Render Postgres database. In the Render dashboard, choose **New > Blueprint**, pick this repo, set **Blueprint Path** to `render.free.yaml`, and enter `BASE_URL` (for example `https://open-palate-trial.onrender.com`) when asked. Then read the setup link from the service's logs.
+The button works once this repository is public. It deploys `render.yaml`: Open Palate on Render's free plan, to try it out, not to keep data. Render builds it from the `Dockerfile` and stores data in a free Render Postgres database. You don't need to type your address; the app uses the one Render gives it.
+
+1. Click the button, sign in to Render, and apply the Blueprint. The first build takes a few minutes.
+2. In Render, open the `open-palate-trial` service, go to **Environment**, and copy the value of `SETUP_PASSWORD`. Render generated it for you.
+3. Open the service's URL, enter your name, email and that password, and you're the first admin. The one-time setup link in the service's **Logs** works too, for 15 minutes after each start.
 
 The free plan has limits:
 - **Expiry:** Render deletes a free database 30 days after it's created, with a 14-day grace period to upgrade it. Everything in it goes with it.
 - **Sleep:** the web service sleeps after 15 idle minutes, so the next visit waits about a minute.
 - **Size and hours:** the database holds 1 GB, and a workspace gets 750 free instance hours a month.
+- **No email:** Render's free plan blocks outgoing mail, so sign-in links can't be emailed. See below.
 
-To keep a trial's data, upgrade the database in Render before it expires, or move to `render.yaml`.
+To keep a trial's data, upgrade the database in Render before it expires, or move to the paid setup.
+
+#### Getting back in
+
+- **Staff (members):** ask an admin to open Group settings and use **Copy sign-in link** for you.
+- **Admins and editors:** enter your email on the sign-in page, then in Render open the service's **Logs** and search for "Sign-in link for". Only the person who deployed can see the logs, so a second admin or editor depends on them.
+- **The shop tablet:** use a device code from Group settings.
+
+### Paid (always on, with a disk)
+
+`render.paid.yaml` runs the published image as a web service with a 1 GB disk at `/data`, generates `SECRET_KEY`, and asks for `BASE_URL`. In the Render dashboard, choose **New > Blueprint**, pick this repo and set **Blueprint Path** to `render.paid.yaml`. A Blueprint created from the older layout, when `render.yaml` was the paid setup, must switch its path to `render.paid.yaml`. Add a `SETUP_PASSWORD` env var in Render if you prefer it to the log link. A disk needs a paid instance (the Starter plan, about $7 per month plus a little for the disk). Edit the `image.url` in `render.paid.yaml` to your published image, and add registry credentials in Render while the package is private. Read the setup link from Render's logs.
 
 ## Development
 

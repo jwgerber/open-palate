@@ -164,6 +164,10 @@ describe('LogTab solo flight', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Drip' }));
     expect(within(dialog).getByRole('group', { name: 'Score sheet' })).toBeInTheDocument();
     expect(within(dialog).queryByText(/Advanced is a cupping sheet/)).toBeNull();
+    // The sheet is chosen first: Advanced decides the prep, so it sits above it.
+    const sheetGroup = within(dialog).getByRole('group', { name: 'Score sheet' });
+    const prepGroup = within(dialog).getByRole('group', { name: 'Prep' });
+    expect(sheetGroup.compareDocumentPosition(prepGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Advanced' }));
     expect(within(dialog).getByRole('button', { name: 'Cupping' })).toHaveAttribute('aria-pressed', 'true');
     expect(within(dialog).getByText(/Advanced is a cupping sheet\./)).toBeInTheDocument();

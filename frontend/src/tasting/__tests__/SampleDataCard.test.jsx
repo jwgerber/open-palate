@@ -28,7 +28,7 @@ describe('SampleDataCard', () => {
     const onLoaded = vi.fn();
     render(<SampleDataCard onLoaded={onLoaded} />);
     expect(await screen.findByText('Explore with sample data')).toBeInTheDocument();
-    expect(screen.getByText("Adds 5 example coffees and a finished blind flight tasted by three sample tasters. Remove it any time in Group settings.")).toBeInTheDocument();
+    expect(screen.getByText("Adds 5 example coffees and two finished blind flights tasted by three sample tasters, one of them a cupping on the advanced sheet. Remove it any time in Group settings.")).toBeInTheDocument();
     expect(tasting.getCoffees).toHaveBeenCalledWith({ includeArchived: true });
     await userEvent.click(screen.getByRole('button', { name: 'Load sample data' }));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/group/sample-data'));

@@ -55,6 +55,37 @@ def test_postgres_without_secret_key_fails():
         load_config({"DATABASE_URL": "postgresql://u@h/db", "BASE_URL": "http://localhost"})
 
 
+def test_render_external_url_used_when_base_url_unset(tmp_path, caplog):
+    env = sqlite_env(tmp_path)
+    del env["BASE_URL"]
+    env["RENDER_EXTERNAL_URL"] = "https://open-palate-trial-ab12.onrender.com"
+    with caplog.at_level(logging.INFO):
+        config = load_config(env)
+    assert config["BASE_URL"] == "https://open-palate-trial-ab12.onrender.com"
+    assert not [r for r in caplog.records if r.levelno == logging.WARNING and "BASE_URL" in r.getMessage()]
+    assert any("RENDER_EXTERNAL_URL" in r.getMessage() for r in caplog.records if r.levelno == logging.INFO)
+
+
+def test_base_url_wins_over_render_external_url(tmp_path):
+    env = sqlite_env(tmp_path)
+    env["RENDER_EXTERNAL_URL"] = "https://x.onrender.com"
+    assert load_config(env)["BASE_URL"] == "http://localhost"
+
+
+def test_render_external_url_trailing_slash_trimmed(tmp_path):
+    env = sqlite_env(tmp_path)
+    del env["BASE_URL"]
+    env["RENDER_EXTERNAL_URL"] = "https://x.onrender.com/"
+    assert load_config(env)["BASE_URL"] == "https://x.onrender.com"
+
+
+def test_empty_base_url_uses_render_external_url(tmp_path):
+    env = sqlite_env(tmp_path)
+    env["BASE_URL"] = ""
+    env["RENDER_EXTERNAL_URL"] = "https://x.onrender.com"
+    assert load_config(env)["BASE_URL"] == "https://x.onrender.com"
+
+
 def test_base_url_defaults_to_localhost(tmp_path, caplog):
     env = sqlite_env(tmp_path)
     del env["BASE_URL"]

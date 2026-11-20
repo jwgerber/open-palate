@@ -4,7 +4,7 @@ A standalone tasting app for coffee teams: flights, blind cupping, a flavor whee
 
 - Backend: Flask + SQLAlchemy + Alembic. SQLite by default (`/data/tasting.db`), Postgres when `DATABASE_URL` is set. `identity/` holds accounts, sessions, devices and setup; `tasting/` holds flights, coffees, palate and paper entry.
 - Frontend: React 19 + MUI 7 + Vite in `frontend/`. Flask serves the built `frontend/dist`.
-- Ships as one Docker image (`Dockerfile`, `docker-entrypoint.sh`, `start.sh`). `render.yaml` is the Render blueprint.
+- Ships as one Docker image (`Dockerfile`, `docker-entrypoint.sh`, `start.sh`). `render.yaml` is the free-trial Render blueprint (the README's Deploy button uses it); `render.paid.yaml` is the paid one with a disk.
 - Design and history: `docs/spec.md`, `docs/plan-phase1.md`, `docs/specs/`, `docs/plans/`. The Phase 1 build ledger is `.superpowers/sdd/plan-phase1/progress.md` (git-ignored, local only).
 
 ## Commands
