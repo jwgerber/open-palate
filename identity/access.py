@@ -12,9 +12,14 @@ manage     a user whose role is editor or admin
 admin      a user whose role is admin
 =========  =====================================
 
-Phase 1 has one group per install. A user's group is their single ACTIVE
-member row (none: 403 ``no_group``; more than one: 403 ``ambiguous_group``,
-never a guess). A device's group is ``device_group_id``.
+``signed_in`` is outside the table: a user session with no group, for routes
+that are about the person (``current_user()``), not a group. Devices get 403.
+
+A user's group comes from the ``X-Group`` header, which must name a group where
+they hold an ACTIVE member row (invalid or not a member: 404 ``group_not_found``).
+Without the header: one active row is that group, several are 400
+``group_required``, none is 403 ``no_group``; never a guess. A device's group is
+``device_group_id``; the header may only repeat it.
 """
 from dataclasses import dataclass
 from functools import wraps
@@ -23,15 +28,17 @@ from typing import Literal
 from flask import abort, jsonify, make_response, request
 
 from extensions import db
-from identity.models import Member
+from identity.models import Member, User
 from identity.sessions import current_session
 from utils import is_pg_int
 
-Level = Literal["member", "self", "device", "manage", "admin"]
-LEVELS: frozenset[str] = frozenset({"member", "self", "device", "manage", "admin"})
+Level = Literal["member", "self", "device", "manage", "admin", "signed_in"]
+LEVELS: frozenset[str] = frozenset({"member", "self", "device", "manage", "admin", "signed_in"})
+GROUP_HEADER = "X-Group"
 DEVICE_DISPLAY_NAME = "Shared device"
 MANAGER_ROLES: tuple[str, ...] = ("editor", "admin")   # roles at the manage level
 _ACTOR_KEY = "tasting.actor"
+_USER_KEY = "tasting.user"
 
 
 @dataclass(frozen=True)
@@ -48,23 +55,53 @@ def _deny(status: int, error: str):
     abort(make_response(jsonify({"error": error}), status))
 
 
+def _group_header() -> int | None:
+    """The ``X-Group`` header, parsed strictly: absent is None; present but not a
+    positive Postgres integer (empty included) is 404 ``group_not_found``."""
+    raw = request.headers.get(GROUP_HEADER)
+    if raw is None:
+        return None
+    if not (raw.isascii() and raw.isdigit() and is_pg_int(int(raw))):
+        _deny(404, "group_not_found")
+    return int(raw)
+
+
 def _resolve_actor() -> Actor:
     session = current_session()
     if session is None:
         _deny(401, "unauthorized")
+    group_id = _group_header()
     if session.kind == "device":
+        if group_id is not None and group_id != session.device_group_id:
+            _deny(404, "group_not_found")
         return Actor(kind="device", group_id=session.device_group_id, user_id=None,
                      member_id=None, role=None, display_name=DEVICE_DISPLAY_NAME)
-    rows = db.session.execute(
-        db.select(Member).where(Member.user_id == session.user_id, Member.active.is_(True))
-        .limit(2)).scalars().all()
-    if not rows:
-        _deny(403, "no_group")
-    if len(rows) > 1:
-        _deny(403, "ambiguous_group")
-    member = rows[0]
+    query = db.select(Member).where(Member.user_id == session.user_id, Member.active.is_(True))
+    if group_id is not None:
+        member = db.session.execute(query.where(Member.group_id == group_id)).scalar_one_or_none()
+        if member is None:
+            _deny(404, "group_not_found")
+    else:
+        rows = db.session.execute(query.limit(2)).scalars().all()
+        if not rows:
+            _deny(403, "no_group")
+        if len(rows) > 1:
+            _deny(400, "group_required")
+        member = rows[0]
     return Actor(kind="user", group_id=member.group_id, user_id=session.user_id,
                  member_id=member.id, role=member.role, display_name=member.display_name)
+
+
+def _resolve_user() -> User:
+    session = current_session()
+    if session is None:
+        _deny(401, "unauthorized")
+    if session.kind != "user":
+        _deny(403, "forbidden")
+    user = db.session.get(User, session.user_id)
+    if user is None:
+        _deny(401, "unauthorized")
+    return user
 
 
 def _allowed(actor: Actor, level: str) -> bool:
@@ -95,6 +132,10 @@ def require(level: Level):
             # Per request, not flask.g: g outlives one request inside an
             # outer app context and would carry an actor into the next.
             request.environ.pop(_ACTOR_KEY, None)
+            request.environ.pop(_USER_KEY, None)
+            if level == "signed_in":
+                request.environ[_USER_KEY] = _resolve_user()
+                return fn(*args, **kwargs)
             actor = _resolve_actor()
             if not _allowed(actor, level):
                 _deny(403, "forbidden")
@@ -110,6 +151,14 @@ def current_actor() -> Actor:
     if actor is None:
         raise RuntimeError("current_actor() called outside a require()-gated route")
     return actor
+
+
+def current_user() -> User:
+    """The signed-in User. Only valid inside a ``require("signed_in")`` route."""
+    user = request.environ.get(_USER_KEY)
+    if user is None:
+        raise RuntimeError("current_user() called outside a require('signed_in') route")
+    return user
 
 
 def actor_for_pick(member_id) -> Actor:
