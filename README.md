@@ -76,7 +76,7 @@ Next, in the Log or Coffees tab an admin of an empty group can **load sample dat
 
 ## Groups and the owner
 
-One install can hold many groups (teams). The app names each request's group in an `X-Group: <id>` header. A group you are not an active member of answers 404 `group_not_found`. API clients that send no header keep working on a single-group install. On an install with several groups, a request with no header gets 400 `group_required`.
+One install can hold many groups (teams). The app names each request's group in an `X-Group: <id>` header. An `X-Group` you aren't an active member of, or that isn't a valid group id, answers 404 `group_not_found`. A person who belongs to one group can send no header; API clients that do this keep working. A person who belongs to more than one group (a personal space counts) must send the header; without it they get 400 `group_required`.
 
 The owner is the person set up first. The owner sets the install address used in links and QR codes, lists the teams (names and member counts only), and makes new teams. The owner gets no access inside a team: to taste or manage in a team, be a member of it. Anyone signed in can make one personal space.
 
