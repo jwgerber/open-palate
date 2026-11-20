@@ -1,11 +1,11 @@
 /**
- * The flavor wheel — a single-ring, drillable radial menu over the SCA/WCR
- * 2016 lexicon. One ring at a time: nine family wedges at the root, and a
+ * The flavor wheel — a single-ring, drillable radial menu over the 2020
+ * flavor-wheel lexicon. One ring at a time: the family wedges at the root, and a
  * tapped heading's children redraw to fill the whole circle, so every target
  * stays thumb-sized.
  *
- * Wedges use the SCA 2016 tier-1 hexes (FAMILY_HEX) — the one place the module
- * deliberately leaves the app palette, so the wheel reads as THE wheel.
+ * Wedges use the per-family hexes from the content file (FAMILY_HEX) — the one
+ * place the module leaves the app palette, so each family reads at a glance.
  *
  * Pick rules live in lexicon.cycleTag (cap 5, specific wins); this component
  * only reports taps: a heading wedge drills (`onPath`), a leaf wedge or the
@@ -17,6 +17,7 @@ import { Box, Typography } from '@mui/material';
 import { keyframes, useTheme } from '@mui/material/styles';
 import { nodeAt, ancestorsOf, FAMILY_HEX, tintFor, MAX_TAGS_PER_CUP } from '../lexicon';
 import { arc, GEOMETRY } from './wheelGeometry';
+import FlavorList, { isDarkFamily } from './FlavorList';
 
 const { SIZE, VIEW, R_INNER } = GEOMETRY;
 
@@ -42,13 +43,15 @@ const EASE = 'cubic-bezier(.4,0,.2,1)';
 const REDUCED = '@media (prefers-reduced-motion: reduce)';
 
 const pct = (v) => `${((v + VIEW / 2) / VIEW) * 100}%`;
-const isDarkFamily = (family) => family !== 'sour';
-// The drill cascade: a capped stagger so the widest ring (10 wedges) is fully
+// The drill cascade: a capped stagger so the widest ring (MAX_WEDGES) is fully
 // painted in ~320ms rather than 690ms — the most repeated tap in the flavor step.
 const STAGGER_MS = 20;
 const STAGGER_CAP = 4;
 const IN_MS = 240;
 const delay = (i) => Math.min(i, STAGGER_CAP) * STAGGER_MS;
+// Past this many notes a ring's wedges get too thin to tap and their labels
+// collide on a phone, so the ring is drawn as a list (FlavorList) instead.
+export const MAX_WEDGES = 12;
 
 function FlavorWheel({ path, tags, onPath, onCycle }) {
   const theme = useTheme();
@@ -77,6 +80,16 @@ function FlavorWheel({ path, tags, onPath, onCycle }) {
   const tapCenter = () => { if (node && !covered) onCycle(node.key); };
   const onKey = (fn) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
   const stateOf = (s) => (s === 3 ? ', strong' : s ? ', picked' : '');
+
+  if (node && n > MAX_WEDGES) {
+    return (
+      <FlavorList
+        node={node} items={children} tags={tags} atCap={atCap} covered={covered}
+        hereStrength={hereStrength} hereInside={hereInside} onTapChild={tapWedge}
+        onTapHeading={tapCenter} stateOf={stateOf} mode={theme.palette.mode}
+      />
+    );
+  }
 
   return (
     <Box sx={{ position: 'relative', width: SIZE, height: SIZE, maxWidth: '100%', touchAction: 'manipulation', mx: 'auto' }} data-testid="flavor-wheel">
@@ -152,8 +165,8 @@ function FlavorWheel({ path, tags, onPath, onCycle }) {
           const inside = c.leaf ? 0 : (insideOf.get(c.key) || []).length;
           const g = arc(i, n);
           // A dim (unpicked leaf) wedge composites over the paper, so its label
-          // takes the paper's ink; a solid wedge takes white, except the yellow
-          // sour family which stays dark ink.
+          // takes the paper's ink; a solid wedge takes white, except the light
+          // families, which stay dark ink.
           const solid = !(c.leaf && !s);
           const color = solid ? (isDarkFamily(c.family) ? '#FFFFFF' : deep) : ink;
           return (

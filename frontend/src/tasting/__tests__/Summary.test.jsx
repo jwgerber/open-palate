@@ -43,7 +43,7 @@ const namedBody = () => ({
   calibration: null,
   coffees: [
     { coffee_id: 1, position: 1, blind_label: 'Cup B', name: 'Guji Shakiso', roaster: 'Maple Roasters', n: 3, avg_total: 86.5, categories: cats(),
-      votes: { yes: 2, maybe: 1, no: 0 }, yes_share: 0.67, top_terms: [{ term: 'Fruity>Berry>blueberry', label: 'blueberry', pct: 67 }],
+      votes: { yes: 2, maybe: 1, no: 0 }, yes_share: 0.67, top_terms: [{ term: 'Fruit>Berry>blueberry', label: 'blueberry', pct: 67 }],
       defects: { musty: 1 }, dq: [{ category: 'acidity', by: 'Sam' }], reads: [read('Sam', 88), read('Robin', 85, 'paper')] },
     { coffee_id: 2, position: 2, blind_label: 'Cup A', name: 'Winter Blend', roaster: 'Maple Roasters', n: 3, avg_total: 80.1, categories: cats(),
       votes: { yes: 0, maybe: 1, no: 2 }, yes_share: 0, top_terms: [], defects: {}, dq: [], reads: [read('Pat', 80)] },

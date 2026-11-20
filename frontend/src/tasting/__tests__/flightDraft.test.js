@@ -47,20 +47,20 @@ describe('flight draft reducer', () => {
     const before = d;
     d = reducer(d, { type: 'val', coffeeId: 1, attr: 'acidity', value: 4 });
     d = reducer(d, { type: 'val', coffeeId: 2, attr: 'overall', value: 3 });
-    d = reducer(d, { type: 'cycleTag', coffeeId: 1, term: 'Fruity>Berry>blueberry' });
+    d = reducer(d, { type: 'cycleTag', coffeeId: 1, term: 'Fruit>Berry>blueberry' });
     d = reducer(d, { type: 'toggleDefect', coffeeId: 2, term: 'papery' });
     d = reducer(d, { type: 'note', coffeeId: 1, note: 'nice' });
-    expect(entryFor(d, 1)).toEqual({ vals: { acidity: 4 }, tags: { 'Fruity>Berry>blueberry': 2 }, defects: {}, note: 'nice', advanced: {}, vote: null });
+    expect(entryFor(d, 1)).toEqual({ vals: { acidity: 4 }, tags: { 'Fruit>Berry>blueberry': 2 }, defects: {}, note: 'nice', advanced: {}, vote: null });
     expect(entryFor(d, 2)).toEqual({ vals: { overall: 3 }, tags: {}, defects: { papery: 1 }, note: '', advanced: {}, vote: null });
     expect(before.entries).toEqual({});
   });
 
   it('refuses a sixth tag and a heading under a picked leaf, leaving the draft untouched', () => {
     let d = run([{ type: 'togglePick', coffee: guji }]);
-    d = reducer(d, { type: 'cycleTag', coffeeId: 1, term: 'Fruity>Berry>blueberry' });
-    const same = reducer(d, { type: 'cycleTag', coffeeId: 1, term: 'Fruity' });
+    d = reducer(d, { type: 'cycleTag', coffeeId: 1, term: 'Fruit>Berry>blueberry' });
+    const same = reducer(d, { type: 'cycleTag', coffeeId: 1, term: 'Fruit' });
     expect(same).toBe(d);
-    d = reducer(d, { type: 'removeTag', coffeeId: 1, term: 'Fruity>Berry>blueberry' });
+    d = reducer(d, { type: 'removeTag', coffeeId: 1, term: 'Fruit>Berry>blueberry' });
     expect(entryFor(d, 1).tags).toEqual({});
   });
 
@@ -82,8 +82,8 @@ describe('flight draft reducer', () => {
       { type: 'val', coffeeId: 2, attr: 'overall', value: 3 },
       { type: 'val', coffeeId: 1, attr: 'overall', value: 5 },
       { type: 'val', coffeeId: 1, attr: 'acidity', value: 4 },
-      { type: 'cycleTag', coffeeId: 1, term: 'Fruity>Berry>blueberry' },
-      { type: 'cycleTag', coffeeId: 1, term: 'Fruity>Berry>blueberry' },
+      { type: 'cycleTag', coffeeId: 1, term: 'Fruit>Berry>blueberry' },
+      { type: 'cycleTag', coffeeId: 1, term: 'Fruit>Berry>blueberry' },
       { type: 'toggleDefect', coffeeId: 1, term: 'papery' },
       { type: 'note', coffeeId: 1, note: 'wow' },
     ]);
@@ -91,7 +91,7 @@ describe('flight draft reducer', () => {
       coffee_ids: [2, 1], prep: 'cupping', member_id: 9,
       entries: [
         { position: 1, coffee_id: 2, overall: 3, tags: {}, defects: [], note: '' },
-        { position: 2, coffee_id: 1, overall: 5, acidity: 4, tags: { 'Fruity>Berry>blueberry': 3 }, defects: ['papery'], note: 'wow' },
+        { position: 2, coffee_id: 1, overall: 5, acidity: 4, tags: { 'Fruit>Berry>blueberry': 3 }, defects: ['papery'], note: 'wow' },
       ],
     });
     d = run([{ type: 'flightName', name: 'GH samples' }, { type: 'blind', blind: true }], { ...d, shared: true });
@@ -277,14 +277,14 @@ describe('Advanced draft', () => {
     let d = done(advancedDraft(), 1);
     d = reducer(d, { type: 'note', coffeeId: 1, note: 'keep me' });
     d = reducer(d, { type: 'toggleDefect', coffeeId: 1, term: 'papery' });
-    d = reducer(d, { type: 'cycleTag', coffeeId: 1, term: 'Fruity>Berry>blueberry' });
+    d = reducer(d, { type: 'cycleTag', coffeeId: 1, term: 'Fruit>Berry>blueberry' });
     d = reducer(d, { type: 'advancedClear', coffeeId: 1 });
     const e = entryFor(d, 1);
     expect(e.advanced).toEqual({});
     expect(e.vote).toBeNull();
     expect(e.note).toBe('keep me');
     expect(e.defects).toEqual({ papery: 1 });
-    expect(e.tags).toEqual({ 'Fruity>Berry>blueberry': 2 });
+    expect(e.tags).toEqual({ 'Fruit>Berry>blueberry': 2 });
   });
 });
 
@@ -299,13 +299,13 @@ describe('scanFill / unreadLabel', () => {
     { type: 'sharedCreated', flight: { id: 7, sheet: 'advanced', adv_step: 0.5 } },
   ]);
   const cup = (position, over = {}) => ({
-    position, scores: full, vote: 'yes', tags: { 'fruity>berry>blackberry': 2 }, defects: ['stale'], note: 'jammy', unread: [], ...over,
+    position, scores: full, vote: 'yes', tags: { 'fruit>berry>blackberry': 2 }, defects: ['stale'], note: 'jammy', unread: [], ...over,
   });
 
   it('fills the cup at each position and leaves other cups alone', () => {
     const d = reducer(advancedDraft(), { type: 'scanFill', cups: [cup(2)] });
     expect(entryFor(d, 2)).toEqual({
-      vals: {}, advanced: full, vote: 'yes', tags: { 'fruity>berry>blackberry': 2 }, defects: { stale: 1 }, note: 'jammy',
+      vals: {}, advanced: full, vote: 'yes', tags: { 'fruit>berry>blackberry': 2 }, defects: { stale: 1 }, note: 'jammy',
     });
     expect(advancedState(entryFor(d, 2))).toBe('done');
     expect(d.entries[1]).toBeUndefined();

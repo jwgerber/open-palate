@@ -114,7 +114,7 @@ def test_unread_lists_blank_and_invalid():
 def test_flavor_words_match_and_overflow():
     labels = []
     for v in content.get().term_index.values():
-        if v["label"].lower() not in labels:
+        if v["leaf"] and v["label"].lower() not in labels:
             labels.append(v["label"].lower())
     words = [labels[0].upper(), *labels[1:6], "zzznonsense"]
     r = normalize_scan([page([col(flavor_words=words, note="Nice")])], cups(1), 1, 0.5)
@@ -291,3 +291,18 @@ def test_refusal_raises_unreadable(ctx):
 def test_bad_json_raises_unreadable(ctx):
     with pytest.raises(ScanUnreadable):
         _read(_client(_message("not json")))
+
+
+def test_scan_label_lookup_new_wheel():
+    """A printed 'Cherry' lands on the 2020 wheel's Stone Fruit; old-wheel words don't match."""
+    assert tasting_scan._LABEL_TO_KEY["cherry"] == "Fruit>Stone Fruit>cherry"
+    assert tasting_scan._LABEL_TO_KEY["licorice / anise"] == "Spice>licorice / anise"
+    assert "butyric acid" not in tasting_scan._LABEL_TO_KEY
+
+
+def test_a_family_word_gives_way_to_a_note_under_it():
+    """'chocolate, milk chocolate' must not save as both: the server refuses a
+    flavor together with one above it, so the specific note wins."""
+    r = normalize_scan([page([col(flavor_words=["Chocolate", "milk chocolate", "Fruit", "Citrus", "lemon"])])],
+                       cups(1), 1, 0.5)
+    assert r.cups[0]["tags"] == {"Chocolate>milk chocolate": 2, "Fruit>Citrus>lemon": 2}

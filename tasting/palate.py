@@ -121,6 +121,6 @@ def palate(group_id: int, user_id: Optional[int], member_ids, *, tz: str, now=No
     terms = {tag.term for t in mine for tag in t.tags}
     return {
         "tastings": len(mine), "coffees": len(coffee_ids), "terms_used": len(terms),
-        "specific_terms": sum(1 for k in terms if lex.tier_of(k) == 3),
+        "specific_terms": sum(1 for k in terms if lex.term_index.get(k, {}).get("leaf")),
         "bias": bias, "bias_coffees": len(diffs), "gap_series": gap_series, "coffees_tasted": coffees_tasted,
     }

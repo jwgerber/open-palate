@@ -4,9 +4,27 @@ import FlavorWheel from '../entry/FlavorWheel';
 import { arc } from '../entry/wheelGeometry';
 import FlavorPicker from '../entry/FlavorPicker';
 
-const B = 'Fruity>Berry>blueberry';
+const B = 'Fruit>Berry>blueberry';
 
 describe('FlavorWheel', () => {
+  it('shows a ring with more than 12 notes as a list of tap targets', () => {
+    const onPath = vi.fn();
+    const onCycle = vi.fn();
+    const V = 'Vegetal / Earthy / Herb';
+    render(<FlavorWheel path={[V]} tags={{ [`${V}>soil`]: 2 }} onPath={onPath} onCycle={onCycle} />);
+    const list = screen.getByTestId('flavor-list');
+    expect(within(list).getAllByTestId(/^wedge-/)).toHaveLength(22);
+    expect(within(list).getByRole('button', { name: 'soil, picked' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(within(list).getByRole('button', { name: 'cedar' }));
+    expect(onCycle).toHaveBeenCalledWith(`${V}>cedar`);
+  });
+
+  it('keeps wedges for rings of 12 or fewer', () => {
+    render(<FlavorWheel path={['Fruit']} tags={{}} onPath={() => {}} onCycle={() => {}} />);
+    expect(screen.queryByTestId('flavor-list')).toBeNull();
+    expect(screen.getAllByTestId(/^wedge-/)).toHaveLength(8);
+  });
+
   it('arc geometry closes a wedge and anchors its label mid-wedge', () => {
     const g = arc(0, 4);
     expect(g.d.startsWith('M0.0,-138.0 A138,138 0 0,1 ')).toBe(true);
@@ -18,30 +36,30 @@ describe('FlavorWheel', () => {
     expect(arc(0, 2).d).toContain(' 0,1 ');
   });
 
-  it('renders nine family wedges at the root and drills on a heading tap', () => {
+  it('renders ten family wedges at the root and drills on a heading tap', () => {
     const onPath = vi.fn();
     const onCycle = vi.fn();
     render(<FlavorWheel path={[]} tags={{}} onPath={onPath} onCycle={onCycle} />);
-    expect(screen.getAllByTestId(/^wedge-/)).toHaveLength(9);
+    expect(screen.getAllByTestId(/^wedge-/)).toHaveLength(10);
     expect(screen.getByText('All flavors')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open Fruity' }));
-    expect(onPath).toHaveBeenCalledWith(['Fruity']);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Fruit' }));
+    expect(onPath).toHaveBeenCalledWith(['Fruit']);
     expect(onCycle).not.toHaveBeenCalled();
   });
 
   it('cycles a leaf on tap, picks a heading from the centre, and reads covered under specific wins', () => {
     const onPath = vi.fn();
     const onCycle = vi.fn();
-    const { rerender } = render(<FlavorWheel path={['Fruity', 'Berry']} tags={{}} onPath={onPath} onCycle={onCycle} />);
+    const { rerender } = render(<FlavorWheel path={['Fruit', 'Berry']} tags={{}} onPath={onPath} onCycle={onCycle} />);
     expect(screen.getAllByTestId(/^wedge-/)).toHaveLength(6);
     fireEvent.click(screen.getByRole('button', { name: 'blueberry' }));
     expect(onCycle).toHaveBeenCalledWith(B);
     fireEvent.click(screen.getByTestId('wheel-center'));
-    expect(onCycle).toHaveBeenCalledWith('Fruity>Berry');
+    expect(onCycle).toHaveBeenCalledWith('Fruit>Berry');
     expect(screen.getByText('＋ take as is')).toBeInTheDocument();
 
     onCycle.mockClear();
-    rerender(<FlavorWheel path={['Fruity', 'Berry']} tags={{ [B]: 3 }} onPath={onPath} onCycle={onCycle} />);
+    rerender(<FlavorWheel path={['Fruit', 'Berry']} tags={{ [B]: 3 }} onPath={onPath} onCycle={onCycle} />);
     expect(screen.getByText('covered by')).toBeInTheDocument();
     expect(screen.getByText('blueberry', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText('! strong')).toBeInTheDocument();
@@ -49,12 +67,21 @@ describe('FlavorWheel', () => {
     fireEvent.click(screen.getByTestId('wheel-center'));
     expect(onCycle).not.toHaveBeenCalled();
 
-    rerender(<FlavorWheel path={['Fruity']} tags={{ [B]: 3 }} onPath={onPath} onCycle={onCycle} />);
+    rerender(<FlavorWheel path={['Fruit']} tags={{ [B]: 3 }} onPath={onPath} onCycle={onCycle} />);
     expect(screen.getByText('1 in')).toBeInTheDocument();
   });
 });
 
 describe('FlavorPicker', () => {
+  it('credits the wheel under the picker, with a link that opens in a new tab', () => {
+    render(<FlavorPicker coffeeLabel="Guji" tags={{}} onCycle={() => {}} onRemove={() => {}} path={[]} onPath={() => {}} />);
+    expect(screen.getByText(/Taster's Flavor Wheel \(2020\), shown in Open Palate's own colors and layout\./)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /about the wheel/i });
+    expect(link).toHaveAttribute('href', 'https://counterculturecoffee.com/tasterswheel');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
   it('shows the tray grouped by family with the sentence, removes, and jumps the wheel', () => {
     const onRemove = vi.fn();
     const onPath = vi.fn();
@@ -65,21 +92,21 @@ describe('FlavorPicker', () => {
     expect(screen.getByTestId('auto-sentence')).toHaveTextContent('Mostly blueberry, with a hint of Floral.');
     fireEvent.click(within(tray).getByRole('button', { name: 'Remove blueberry' }));
     expect(onRemove).toHaveBeenCalledWith(B);
-    fireEvent.click(within(tray).getByRole('button', { name: 'Open Fruity' }));
-    expect(onPath).toHaveBeenCalledWith(['Fruity']);
-    expect(screen.getByText('9 families — tap one to open it')).toBeInTheDocument();
+    fireEvent.click(within(tray).getByRole('button', { name: 'Open Fruit' }));
+    expect(onPath).toHaveBeenCalledWith(['Fruit']);
+    expect(screen.getByText('10 families — tap one to open it')).toBeInTheDocument();
   });
 
   it('breadcrumb, back and All navigate the path', () => {
     const onPath = vi.fn();
-    render(<FlavorPicker coffeeLabel="Guji" tags={{}} onCycle={() => {}} onRemove={() => {}} path={['Fruity', 'Berry']} onPath={onPath} />);
+    render(<FlavorPicker coffeeLabel="Guji" tags={{}} onCycle={() => {}} onRemove={() => {}} path={['Fruit', 'Berry']} onPath={onPath} />);
     expect(screen.getByText('6 under Berry · tap the center to take "Berry" as is')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(onPath).toHaveBeenLastCalledWith(['Fruity']);
+    expect(onPath).toHaveBeenLastCalledWith(['Fruit']);
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
     expect(onPath).toHaveBeenLastCalledWith([]);
-    fireEvent.click(screen.getByRole('button', { name: 'Fruity' }));
-    expect(onPath).toHaveBeenLastCalledWith(['Fruity']);
+    fireEvent.click(screen.getByRole('button', { name: 'Fruit' }));
+    expect(onPath).toHaveBeenLastCalledWith(['Fruit']);
   });
 
   it('search lists matching terms and picks through onCycle', () => {

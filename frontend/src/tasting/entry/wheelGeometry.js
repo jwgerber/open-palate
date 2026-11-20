@@ -19,7 +19,7 @@ function compute(i, n, R, r) {
   return { d, lx: lr * Math.cos(m), ly: lr * Math.sin(m) };
 }
 
-// (i, n) is bounded — n ≤ 10 children in any ring — so every wedge the wheel
+// (i, n) is bounded — n ≤ MAX_WEDGES (12, FlavorWheel) in any ring — so every wedge the wheel
 // can ever draw fits in a few dozen cache entries, and the wedge and label
 // loops stop recomputing trig and path strings on every render.
 const cache = new Map();

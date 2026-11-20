@@ -21,7 +21,7 @@ import PalateTab from '../palate/PalateTab';
 import { sectionsFor, factChips, blankFacts, biasSentence, signed } from '../coffees/coffeeSupport';
 import { renderAt, guji, lot as huila } from './helpers';
 
-const B = 'Fruity>Berry>blueberry';
+const B = 'Fruit>Berry>blueberry';
 const winter = { id: 2, name: 'Winter Blend', roaster: 'Maple Roasters', kind: 'house', n: 2, basic_n: 2, cupping: null, avg_overall: null, top_terms: [], tasted_by_me: false, archived_at: null };
 const lot = { ...huila, name: 'Kirinyaga AA', roaster: 'Ridge Roasters' };
 

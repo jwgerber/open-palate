@@ -1,18 +1,17 @@
 /**
- * Pure helpers over the SCA lexicon loaded from /api/content (content.js).
+ * Pure helpers over the flavor-wheel lexicon loaded from /api/content (content.js).
  *
- * A term's KEY is its path joined by KEY_SEP ("Fruity>Berry>blueberry") — the
- * same string the backend stores on tasting_tags.term. Labels repeat at
- * different depths in the SCA tree (Floral > Floral), so components must never
- * key on a bare label.
+ * A term's KEY is its path joined by KEY_SEP ("Fruit>Berry>blueberry") — the
+ * same string the backend stores on tasting_tags.term. Components key on the
+ * path, never a bare label, so a key always says where on the wheel a note sits.
  *
  * `tags` everywhere is `{ [key]: 2 | 3 }` — 2 picked, 3 strong.
  */
 import {
-  KEY_SEP, FAMILY_HEX, FAMILY_TINT, MAX_TAGS_PER_CUP, SCALE_WORDS, INDEX, ROOT_KEYS, ALL_TERMS,
+  KEY_SEP, FAMILY_HEX, FAMILY_TINT, MAX_TAGS_PER_CUP, SCALE_WORDS, INDEX, ROOT_KEYS, ALL_TERMS, ATTRIBUTION,
 } from './content';
 
-export { KEY_SEP, FAMILY_HEX, FAMILY_TINT, MAX_TAGS_PER_CUP, SCALE_WORDS, INDEX, ROOT_KEYS, ALL_TERMS };
+export { KEY_SEP, FAMILY_HEX, FAMILY_TINT, MAX_TAGS_PER_CUP, SCALE_WORDS, INDEX, ROOT_KEYS, ALL_TERMS, ATTRIBUTION };
 
 export const keyOf = (path) => path.join(KEY_SEP);
 export const labelOf = (key) => key.split(KEY_SEP).pop();
@@ -25,7 +24,7 @@ export const hexOf = (key) => FAMILY_HEX[familyOf(key)] ?? '#8B8593';
 const hexToRgb = (hex) => hex.replace('#', '').match(/.{2}/g).map((h) => parseInt(h, 16));
 /**
  * Family tint for the current theme mode. The light tints are fixed pastels
- * that vanish under dark-mode ink, so dark mode uses the SCA hue at low alpha
+ * that vanish under dark-mode ink, so dark mode uses the family hue at low alpha
  * over the dark paper instead — same family colour, readable with light text.
  */
 export function tintFor(key, mode = 'light') {

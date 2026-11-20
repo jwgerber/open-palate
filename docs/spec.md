@@ -43,7 +43,7 @@ synced back.
 - Any scores, tags or coffee identities leaking before close, through any route,
   for any kind of user (member, guest, shared device, host).
 - Data from one group visible to another group.
-- Shipping the SCA wheel or the Advanced form's layout publicly before the owner
+- Shipping the flavor wheel or the Advanced form's layout publicly before the owner
   has permission (see Licensing).
 - The original app's branding, data, the shop's names, or the original app's git history in the
   new repo.
@@ -191,9 +191,10 @@ account enumeration).
   rules) move to data files under `content/` (JSON), loaded at startup and
   served to the frontend from one endpoint. The Python → JS generator and its
   drift test are replaced by that endpoint plus a schema test on the files.
-- Today's content (SCA/WCR 2016 wheel, the Advanced form) is the initial
-  content. **The repo stays private until the owner hears back** from SCA/WCR
-  and the cupping-sheet publisher. With a yes, it goes public as-is. With a no on the
+- Today's content is the 2020 flavor wheel credited in the README (adopted
+  word for word on 2026-11-20, see `docs/specs/2026-11-20-2020-wheel-design.md`)
+  and the Advanced form. **The repo stays private until the owner hears back**
+  from the wheel's publisher and the cupping-sheet publisher. With a yes, it goes public as-is. With a no on the
   lexicon, that file is replaced with original content and nothing else
   changes.
 - **The Advanced form keeps fixed columns** (owner decision): ten `adv_*` score

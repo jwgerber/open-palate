@@ -50,7 +50,7 @@ describe('LogTab solo flight', () => {
           { coffee_id: 2, position: 1, name: 'Winter Blend', roaster: 'Maple Roasters', n: 1, consensus: null, yours: { overall: 3, sentence: '', defects: [] }, descriptors: [], verdict: null },
           { coffee_id: 1, position: 2, name: 'Guji Shakiso', roaster: 'Maple Roasters', n: 12, consensus: { n: 12, avg_overall: 3.9, spread: 0.6, histogram: [0, 1, 3, 5, 3] },
             yours: { overall: 4, acidity: 5, sweetness: null, body: 3, balance: null, sentence: 'Mostly blueberry.', defects: [], note: '' },
-            descriptors: [{ term: 'Fruity>Berry>blueberry', label: 'blueberry', family: 'fruity', kind: 'shared', pct: 64 }], verdict: 'You landed with the room.' },
+            descriptors: [{ term: 'Fruit>Berry>blueberry', label: 'blueberry', family: 'fruit', kind: 'shared', pct: 64 }], verdict: 'You landed with the room.' },
         ],
       },
     });
@@ -80,7 +80,7 @@ describe('LogTab solo flight', () => {
     fireEvent.click(within(dialog).getByRole('radio', { name: /^3 stars/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Guji Shakiso' }));
     await within(dialog).findByText('Maple Roasters · cup 2 of 2');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Open Fruity' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Open Fruit' }));
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Open Berry' }));
     fireEvent.click(await within(dialog).findByRole('button', { name: 'blueberry' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'blueberry, picked' }));   // strong
@@ -102,7 +102,7 @@ describe('LogTab solo flight', () => {
       coffee_ids: [2, 1], prep: 'drip',
       entries: [
         { position: 1, coffee_id: 2, overall: 3, tags: {}, defects: [], note: '' },
-        { position: 2, coffee_id: 1, overall: 4, tags: { 'Fruity>Berry>blueberry': 3 }, defects: [], note: 'wow' },
+        { position: 2, coffee_id: 1, overall: 4, tags: { 'Fruit>Berry>blueberry': 3 }, defects: [], note: 'wow' },
       ],
     });
     await within(dialog).findByText("You're one of the first.");

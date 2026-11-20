@@ -27,6 +27,6 @@ export const renderAt = (path, routes) => render(
 );
 
 // Coffee fixtures in the list shape GET /coffees returns.
-export const guji = { id: 1, name: 'Guji Shakiso', roaster: 'Maple Roasters', kind: 'house', n: 11, basic_n: 11, cupping: null, avg_overall: 3.9, spread: 0.6, top_terms: [{ term: 'Fruity>Berry>blueberry', label: 'blueberry', pct: 64 }], tasted_by_me: true, archived_at: null };
+export const guji = { id: 1, name: 'Guji Shakiso', roaster: 'Maple Roasters', kind: 'house', n: 11, basic_n: 11, cupping: null, avg_overall: 3.9, spread: 0.6, top_terms: [{ term: 'Fruit>Berry>blueberry', label: 'blueberry', pct: 64 }], tasted_by_me: true, archived_at: null };
 export const winter = { id: 2, name: 'Winter Blend', roaster: 'Maple Roasters', kind: 'house', n: 2, basic_n: 2, cupping: null, avg_overall: null, top_terms: [], tasted_by_me: false, archived_at: null };
 export const lot = { id: 3, name: 'Huila Sample 3', roaster: 'Harbor Roasters', kind: 'cupping_lot', n: 0, basic_n: 0, cupping: null, avg_overall: null, top_terms: [], tasted_by_me: false, archived_at: null };

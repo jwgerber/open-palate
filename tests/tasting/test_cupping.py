@@ -66,12 +66,12 @@ class TestRanking:
     def test_terms_and_defects(self, db_session, flight):
         f, a, *_ = flight
         t = _read(db_session, f, a, "u1", "One", 8.0)
-        t.tags.append(TastingTag(term="Fruity>Berry>blueberry", strength=2))
+        t.tags.append(TastingTag(term="Fruit>Berry>blueberry", strength=2))
         t.defects.append(TastingDefect(term="papery"))
         db_session.flush()
         db_session.refresh(f)
         top = _summary(f)["coffees"][0]
-        assert top["top_terms"][0]["term"] == "Fruity>Berry>blueberry" and top["top_terms"][0]["pct"] == 100
+        assert top["top_terms"][0]["term"] == "Fruit>Berry>blueberry" and top["top_terms"][0]["pct"] == 100
         assert top["defects"] == {"papery": 1}
 
 
@@ -141,7 +141,7 @@ class TestSmallCuppingWithholding:
         f, a, *_ = flight
         _read(db_session, f, a, "caller", "Caller", 8.5)
         t = _read(db_session, f, a, "u2", "Other", 7.8, adv_acidity=7.0, bar_vote="no")
-        t.tags.append(TastingTag(term="Fruity>Berry>blueberry", strength=2))
+        t.tags.append(TastingTag(term="Fruit>Berry>blueberry", strength=2))
         t.defects.append(TastingDefect(term="papery"))
         db_session.flush()
         db_session.refresh(f)

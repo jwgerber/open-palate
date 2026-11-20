@@ -6,7 +6,7 @@ import '@fontsource-variable/figtree';
  * Open Palate's look: Bricolage Grotesque for headings, cup letters and
  * buttons, Figtree for everything else, both bundled (no font CDN, so a
  * self-hosted install never calls out). Light mode is Persimmon, dark mode is
- * Night shift. The flavor wheel keeps its own SCA colors (lexicon.js).
+ * Night shift. The flavor wheel keeps its own family colors (lexicon.js).
  *
  * Two custom palette tokens the Tasting UI reads: `warning.ink` and `surface.deep`.
  */

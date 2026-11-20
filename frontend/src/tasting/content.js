@@ -1,5 +1,5 @@
 /**
- * The server's content (GET /api/content: the SCA flavor wheel plus the two
+ * The server's content (GET /api/content: the flavor wheel plus the two
  * score sheets' wording) as module-level live bindings.
  *
  * The app loads it once at start (see `useContent` / ContentGate) and calls
@@ -19,6 +19,8 @@ export const CONSENSUS_THRESHOLD = 3;
 
 export let KEY_SEP = '>';
 export let FAMILY_HEX = {};
+/** The wheel publisher's credit line and link, shown under the flavor picker. */
+export let ATTRIBUTION = { text: '', url: '' };
 export let FAMILY_TINT = {};
 export let DEFECT_TERMS = [];
 export let PREPS = [];
@@ -70,6 +72,7 @@ const mapValues = (obj, fn) => Object.fromEntries(Object.entries(obj).map(([k, v
 /** Install the server's `{lexicon, forms}` body. */
 export function setContent({ lexicon, forms }) {
   KEY_SEP = lexicon.key_separator;
+  ATTRIBUTION = lexicon.attribution;
   FAMILY_HEX = mapValues(lexicon.families, (f) => f.hex);
   FAMILY_TINT = mapValues(lexicon.families, (f) => f.tint);
   DEFECT_TERMS = lexicon.defects;

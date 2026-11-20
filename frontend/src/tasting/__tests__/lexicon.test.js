@@ -5,35 +5,35 @@ import {
   ALL_TERMS, MAX_TAGS_PER_CUP,
 } from '../lexicon';
 
-const B = 'Fruity>Berry>blueberry';
-const L = 'Fruity>Citrus>lemon';
+const B = 'Fruit>Berry>blueberry';
+const L = 'Fruit>Citrus>lemon';
 
 describe('lexicon index', () => {
-  it('has 200 terms across 9 families', () => {
-    expect(ROOT_KEYS).toHaveLength(9);
-    expect(ALL_TERMS).toHaveLength(200);
-    expect(ROOT_KEYS[0]).toBe('Fruity');
+  it('has the 2020 wheel: 142 terms across 10 families', () => {
+    expect(ROOT_KEYS).toHaveLength(10);
+    expect(ALL_TERMS).toHaveLength(142);
+    expect(ROOT_KEYS[0]).toBe('Fruit');
   });
 
-  it('keeps repeated labels apart by key', () => {
+  it('puts notes straight under families outside Fruit', () => {
     expect(INDEX['Floral'].tier).toBe(1);
-    expect(INDEX['Floral>Floral'].tier).toBe(2);
-    expect(INDEX['Floral>Floral'].children).toEqual([
-      'chamomile', 'rose', 'jasmine', 'hibiscus', 'lavender',
-      'magnolia', 'honeysuckle', 'orange blossom', 'bergamot', 'lemongrass',
-    ].map((l) => `Floral>Floral>${l}`));
+    expect(INDEX['Floral'].children).toEqual([
+      'lemongrass', 'orange blossom', 'jasmine', 'honeysuckle',
+      'magnolia', 'lavender', 'rose / rosewater', 'hibiscus',
+    ].map((l) => `Floral>${l}`));
   });
 
   it('resolves paths and ancestry', () => {
-    expect(keyOf(['Fruity', 'Berry'])).toBe('Fruity>Berry');
+    expect(keyOf(['Fruit', 'Berry'])).toBe('Fruit>Berry');
     expect(labelOf(B)).toBe('blueberry');
-    expect(ancestorsOf(B)).toEqual(['Fruity', 'Fruity>Berry']);
-    expect(ancestorsOf('Fruity')).toEqual([]);
-    expect(familyOf('Other>Chemical>rubber')).toBe('other');
+    expect(ancestorsOf(B)).toEqual(['Fruit', 'Fruit>Berry']);
+    expect(ancestorsOf('Fruit')).toEqual([]);
+    expect(familyOf('Vegetal / Earthy / Herb>cedar')).toBe('vegetal');
     expect(isValidTerm('blueberry')).toBe(false);
-    expect(nodeAt([]).children.map((c) => c.label)).toContain('Roasted');
-    expect(nodeAt(['Fruity', 'Berry']).node.label).toBe('Berry');
-    expect(nodeAt(['Fruity', 'Berry']).children.map((c) => c.label)).toEqual(['blackberry', 'raspberry', 'blueberry', 'strawberry', 'cranberry', 'currant']);
+    expect(isValidTerm('Fruity>Berry>blueberry')).toBe(false);
+    expect(nodeAt([]).children.map((c) => c.label)).toContain('Roast');
+    expect(nodeAt(['Fruit', 'Berry']).node.label).toBe('Berry');
+    expect(nodeAt(['Fruit', 'Berry']).children.map((c) => c.label)).toEqual(['cranberry', 'raspberry', 'strawberry', 'blueberry', 'blackberry', 'currant']);
     expect(nodeAt(['Nope']).children).toEqual([]);
   });
 });
@@ -49,19 +49,19 @@ describe('cycleTag', () => {
 
   it('caps at five terms', () => {
     let tags = {};
-    ['Fruity', 'Floral', 'Sweet', 'Spices', 'Roasted'].forEach((k) => { tags = cycleTag(tags, k); });
+    ['Fruit', 'Floral', 'Nut', 'Spice', 'Roast'].forEach((k) => { tags = cycleTag(tags, k); });
     expect(Object.keys(tags)).toHaveLength(MAX_TAGS_PER_CUP);
-    expect(cycleTag(tags, 'Other')).toBeNull();
+    expect(cycleTag(tags, 'Savory')).toBeNull();
     // Strengthening an existing pick is still allowed at the cap.
-    expect(cycleTag(tags, 'Fruity')).toEqual({ ...tags, Fruity: 3 });
+    expect(cycleTag(tags, 'Fruit')).toEqual({ ...tags, Fruit: 3 });
   });
 
   it('specific wins: a leaf drops picked ancestors, a heading is refused under a picked leaf', () => {
-    const withFamily = cycleTag({}, 'Fruity');
+    const withFamily = cycleTag({}, 'Fruit');
     expect(cycleTag(withFamily, B)).toEqual({ [B]: 2 });
-    expect(cycleTag({ [B]: 2 }, 'Fruity')).toBeNull();
-    expect(cycleTag({ [B]: 2 }, 'Fruity>Berry')).toBeNull();
-    expect(descendantsSelected('Fruity', { [B]: 2, [L]: 3, Floral: 2 })).toEqual([B, L]);
+    expect(cycleTag({ [B]: 2 }, 'Fruit')).toBeNull();
+    expect(cycleTag({ [B]: 2 }, 'Fruit>Berry')).toBeNull();
+    expect(descendantsSelected('Fruit', { [B]: 2, [L]: 3, Floral: 2 })).toEqual([B, L]);
   });
 
   it('removeTag is non-mutating', () => {
@@ -76,16 +76,16 @@ describe('describe + groupTags', () => {
     expect(sentence({})).toBe('');
     expect(sentence({ [B]: 3 })).toBe('Mostly blueberry.');
     expect(sentence({ [B]: 3, [L]: 2, Floral: 2 })).toBe('Mostly blueberry, with a hint of lemon and Floral.');
-    expect(sentence({ [L]: 2, 'Nutty / Cocoa>Cocoa>chocolate': 2 })).toBe('Notes of lemon and chocolate.');
+    expect(sentence({ [L]: 2, 'Chocolate>dark chocolate': 2 })).toBe('Notes of lemon and dark chocolate.');
   });
 
   it('groups by family in wheel order, shallow first', () => {
-    const groups = groupTags({ [B]: 3, Floral: 2, 'Fruity>Citrus': 2 });
-    expect(groups.map((g) => g.familyLabel)).toEqual(['Fruity', 'Floral']);
+    const groups = groupTags({ [B]: 3, Floral: 2, 'Fruit>Citrus': 2 });
+    expect(groups.map((g) => g.familyLabel)).toEqual(['Fruit', 'Floral']);
     expect(groups[0].items.map((i) => i.label)).toEqual(['Citrus', 'blueberry']);
     expect(groups[0].items[1]).toMatchObject({ strength: 3, leaf: true });
     expect(groups[0].items[0].leaf).toBe(false);
-    expect(groups[0].tint).toBe('#F5C6C7');
+    expect(groups[0].tint).toBe('#F8D0DD');
   });
 
   it('words a score', () => {

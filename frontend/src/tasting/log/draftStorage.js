@@ -10,6 +10,7 @@
  * failure only loses the protection, never the tasting in progress.
  */
 import { initialDraft } from './flightDraft';
+import { isValidTerm } from '../lexicon';
 
 const PREFIX = 'tasting.draft.v1:';
 export const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -20,6 +21,17 @@ export const slotOf = (draft) => draft.flightId ?? 'new';
 
 export const isWorthKeeping = (draft) => draft.screen !== 'landing' && draft.screen !== 'reveal'
   && !draft.logged && draft.picked.length > 0;
+
+/**
+ * A copy of `draft` whose entries keep only tags `isTerm` accepts. A draft saved
+ * before a lexicon change can hold keys the server would now reject.
+ */
+export function dropUnknownTags(draft, isTerm) {
+  const entries = Object.fromEntries(Object.entries(draft.entries || {}).map(([id, e]) => [
+    id, { ...e, tags: Object.fromEntries(Object.entries(e.tags || {}).filter(([k]) => isTerm(k))) },
+  ]));
+  return { ...draft, entries };
+}
 
 export function saveDraft(owner, draft) {
   if (owner == null) return;
@@ -76,7 +88,7 @@ export function loadDraft(owner, { flightId = null } = {}) {
       if (!saved || !key.startsWith(ownerPrefix) || (wanted && key !== wanted)) return;
       if (!best || saved.savedAt > best.savedAt) best = saved;
     });
-    return best ? { ...initialDraft(), ...best.draft } : null;
+    return best ? dropUnknownTags({ ...initialDraft(), ...best.draft }, isValidTerm) : null;
   } catch (e) {
     console.warn('Could not read the saved tasting draft', e);
     return null;

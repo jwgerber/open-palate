@@ -9,16 +9,16 @@
 import { memo, useMemo, useState } from 'react';
 import {
   Box, Button, ButtonBase, Dialog, DialogTitle, DialogContent, IconButton, InputAdornment,
-  List, ListItemButton, ListItemText, TextField, Typography, Divider,
+  Link, List, ListItemButton, ListItemText, TextField, Typography, Divider,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import HomeIcon from '@mui/icons-material/Home';
 import CloseIcon from '@mui/icons-material/Close';
-import FlavorWheel from './FlavorWheel';
+import FlavorWheel, { MAX_WEDGES } from './FlavorWheel';
 import TermChip from './TermChip';
 import Eyebrow from '../bits/Eyebrow';
-import { groupTags, describe, nodeAt, ALL_TERMS, MAX_TAGS_PER_CUP } from '../lexicon';
+import { groupTags, describe, nodeAt, ALL_TERMS, MAX_TAGS_PER_CUP, ROOT_KEYS, ATTRIBUTION } from '../lexicon';
 
 function FlavorPicker({ coffeeLabel, tags, onCycle, onRemove, path, onPath }) {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -93,9 +93,18 @@ function FlavorPicker({ coffeeLabel, tags, onCycle, onRemove, path, onPath }) {
         {count >= MAX_TAGS_PER_CUP
           ? `${MAX_TAGS_PER_CUP} of ${MAX_TAGS_PER_CUP} picked — remove one to add another`
           : path.length === 0
-            ? '9 families — tap one to open it'
-            : `${children.length} under ${node?.label} · tap the center to take "${node?.label}" as is`}
+            ? `${ROOT_KEYS.length} families — tap one to open it`
+            : children.length > MAX_WEDGES
+              ? `${children.length} under ${node?.label} · tap a note, or the button above to take "${node?.label}" as is`
+              : `${children.length} under ${node?.label} · tap the center to take "${node?.label}" as is`}
       </Typography>
+
+      {ATTRIBUTION.text && (
+        <Typography sx={{ fontSize: 11, color: 'text.secondary', textAlign: 'center' }} data-testid="wheel-credit">
+          {ATTRIBUTION.text}{' '}
+          <Link href={ATTRIBUTION.url} target="_blank" rel="noopener noreferrer" underline="always">About the wheel</Link>
+        </Typography>
+      )}
 
       <TermSearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} tags={tags} onCycle={onCycle} />
     </Box>

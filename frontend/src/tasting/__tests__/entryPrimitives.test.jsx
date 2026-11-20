@@ -92,9 +92,9 @@ describe('DefectsCard', () => {
 describe('TermChip', () => {
   it('renders the label, a strong mark and a remove button', () => {
     const onRemove = vi.fn();
-    render(<TermChip term="Fruity>Berry>blueberry" strength={3} onRemove={onRemove} />);
+    render(<TermChip term="Fruit>Berry>blueberry" strength={3} onRemove={onRemove} />);
     expect(screen.getByText('blueberry !')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Remove blueberry' }));
-    expect(onRemove).toHaveBeenCalledWith('Fruity>Berry>blueberry');
+    expect(onRemove).toHaveBeenCalledWith('Fruit>Berry>blueberry');
   });
 });

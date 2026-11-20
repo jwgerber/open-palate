@@ -32,6 +32,12 @@ describe('saving and loading', () => {
     expect(loaded.picked).toEqual([guji]);
   });
 
+  it('drops tags the lexicon no longer has', () => {
+    const entry = { vals: {}, tags: { 'Fruity>Berry>blueberry': 2, 'Fruit>Berry>blueberry': 2 }, defects: {}, note: '', advanced: {}, vote: null };
+    saveDraft('u-1', inProgress({ entries: { 1: entry } }));
+    expect(loadDraft('u-1').entries[1].tags).toEqual({ 'Fruit>Berry>blueberry': 2 });
+  });
+
   it('never stores a reveal body or a stale error', () => {
     saveDraft('u-1', inProgress({ result: { cups: ['secret'] }, error: 'boom' }));
     const raw = localStorage.getItem(localStorage.key(0));

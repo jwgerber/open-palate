@@ -1,8 +1,7 @@
 """Content as data: the lexicon and the score-sheet wording.
 
-Terms are stored on ``tasting_tags.term`` as PATH KEYS (``"Fruity>Berry>blueberry"``),
-not bare labels, because the wheel repeats labels at different depths
-(``Floral > Floral``).
+Terms are stored on ``tasting_tags.term`` as PATH KEYS (``"Fruit>Berry>blueberry"``),
+not bare labels, so a key always says where on the wheel a note sits.
 """
 import hashlib
 import json
@@ -26,55 +25,77 @@ def lex():
     return content.load()
 
 
-class TestTreeShape:
-    def test_nine_families_in_wheel_order(self, lex):
-        assert [n["label"] for n in lex.lexicon["tree"]] == [
-            "Fruity", "Floral", "Sweet", "Nutty / Cocoa", "Spices", "Roasted",
-            "Sour / Fermented", "Green / Vegetative", "Other",
-        ]
+FAMILIES = ["Fruit", "Chocolate", "Sweet & Sugary", "Nut", "Grain & Cereal",
+            "Roast", "Spice", "Savory", "Vegetal / Earthy / Herb", "Floral"]
+SLUGS = {"fruit", "chocolate", "sweet", "nut", "grain", "roast", "spice", "savory",
+         "vegetal", "floral"}
 
-    def test_term_count_is_the_2016_lexicon_plus_the_ccc_additions(self, lex):
+
+class TestTreeShape:
+    """The 2020 wheel credited in the README, word for word (spec 2026-11-20)."""
+
+    def test_ten_families_in_wheel_order(self, lex):
+        assert [n["label"] for n in lex.lexicon["tree"]] == FAMILIES
+
+    def test_term_counts_match_the_2020_wheel(self, lex):
         tiers = {}
         for info in lex.term_index.values():
             tiers[info["tier"]] = tiers.get(info["tier"], 0) + 1
-        # SCA 2016: 9 / 28 / 73. Counter Culture additions: 9 headings, 81 leaves.
-        assert tiers == {1: 9, 2: 37, 3: 154}
-        assert len(lex.term_index) == 200
+        assert tiers == {1: 10, 2: 89, 3: 43}
+        assert sum(1 for v in lex.term_index.values() if v["leaf"]) == 124
 
-    def test_keys_are_unique_even_where_labels_repeat(self, lex):
-        floral_keys = [k for k, v in lex.term_index.items() if v["label"] == "Floral"]
-        assert sorted(floral_keys) == ["Floral", f"Floral{SEP}Floral"]
-        assert lex.term_index["Floral"]["tier"] == 1
-        assert lex.term_index[f"Floral{SEP}Floral"]["tier"] == 2
-
-    def test_every_family_has_a_hex_and_a_tint(self, lex):
-        fams = {v["family"] for v in lex.term_index.values()}
-        assert fams == set(lex.lexicon["families"])
-        assert lex.lexicon["families"]["fruity"] == {"hex": "#DA1D23", "tint": "#F5C6C7"}
+    def test_fruit_groups_in_order(self, lex):
+        fruit = lex.lexicon["tree"][0]
+        assert [g["label"] for g in fruit["children"]] == [
+            "Citrus", "Apple / Pear", "Melon", "Grape", "Tropical Fruit",
+            "Stone Fruit", "Berry", "Dried Fruit"]
 
     def test_leaf_and_heading_flags(self, lex):
-        assert lex.term_index[f"Fruity{SEP}Berry{SEP}blueberry"] == {
-            "label": "blueberry", "family": "fruity", "tier": 3, "leaf": True,
-            "path": ["Fruity", "Berry", "blueberry"],
+        assert lex.term_index[f"Fruit{SEP}Berry{SEP}blueberry"] == {
+            "label": "blueberry", "family": "fruit", "tier": 3, "leaf": True,
+            "path": ["Fruit", "Berry", "blueberry"],
         }
-        assert lex.term_index["Fruity"]["leaf"] is False
-        assert lex.term_index[f"Sweet{SEP}Vanilla"]["leaf"] is True
+        assert lex.term_index[f"Nut{SEP}hazelnut"]["tier"] == 2
+        assert lex.term_index[f"Nut{SEP}hazelnut"]["leaf"] is True
+        assert lex.term_index["Fruit"]["leaf"] is False
+
+    def test_group_key_is_a_term(self, lex):
+        assert lex.is_valid_term(f"Fruit{SEP}Citrus")
+
+    def test_slash_and_apostrophe_terms_round_trip(self, lex):
+        for key in (f"Spice{SEP}licorice / anise", f"Chocolate{SEP}baker's chocolate",
+                    f"Floral{SEP}rose / rosewater"):
+            assert lex.is_valid_term(key) and len(key) <= 80
+
+    def test_families_have_slugs_hex_and_tint(self, lex):
+        assert set(lex.lexicon["families"]) == SLUGS
+        assert {v["family"] for v in lex.term_index.values()} == SLUGS
+        assert all({"hex", "tint"} <= set(v) for v in lex.lexicon["families"].values())
+
+    def test_no_old_wheel_jargon(self, lex):
+        labels = {v["label"] for v in lex.term_index.values()}
+        assert not labels & {"butyric acid", "vanillin", "Overall sweet", "Other fruit"}
+
+    def test_labels_never_repeat(self, lex):
+        labels = [v["label"].lower() for v in lex.term_index.values()]
+        assert len(labels) == len(set(labels))
 
 
 class TestHelpers:
     def test_ancestors_of(self, lex):
-        assert lex.ancestors_of(f"Fruity{SEP}Berry{SEP}blueberry") == ["Fruity", f"Fruity{SEP}Berry"]
-        assert lex.ancestors_of("Fruity") == []
+        assert lex.ancestors_of(f"Fruit{SEP}Berry{SEP}blueberry") == ["Fruit", f"Fruit{SEP}Berry"]
+        assert lex.ancestors_of("Fruit") == []
 
     def test_family_and_label(self, lex):
-        assert lex.family_of(f"Other{SEP}Chemical{SEP}rubber") == "other"
-        assert lex.label_of(f"Other{SEP}Chemical{SEP}rubber") == "rubber"
+        assert lex.family_of(f"Vegetal / Earthy / Herb{SEP}cedar") == "vegetal"
+        assert lex.label_of(f"Vegetal / Earthy / Herb{SEP}cedar") == "cedar"
 
     def test_is_valid_term(self, lex):
-        assert lex.is_valid_term("Fruity")
-        assert lex.is_valid_term(f"Roasted{SEP}Burnt{SEP}smoky")
+        assert lex.is_valid_term("Fruit")
+        assert lex.is_valid_term(f"Roast{SEP}smoky")
         assert not lex.is_valid_term("blueberry")            # bare labels are NOT keys
-        assert not lex.is_valid_term("Fruity>Berry>durian")
+        assert not lex.is_valid_term("Fruit>Berry>durian")
+        assert not lex.is_valid_term("Fruity>Berry>blueberry")  # the old wheel's keys are gone
         assert not lex.is_valid_term(None)
 
     def test_defects_and_scales(self, lex):
@@ -131,7 +152,7 @@ def test_schema_rejects_a_bad_file():
     schema = _schema("lexicon.schema.json")
     data = json.loads((CONTENT_DIR / "lexicon.json").read_text(encoding="utf-8"))
     data["tree"][0]["label"] = "Fruit>y"          # a label may not contain the key separator
-    del data["families"]["fruity"]["tint"]
+    del data["families"]["fruit"]["tint"]
     messages = [e.message for e in Draft202012Validator(schema).iter_errors(data)]
     assert len(messages) >= 2
 
@@ -209,3 +230,17 @@ def test_no_shop_or_brand_strings_anywhere():
         if ABBREVIATION.search(text):
             offenders.append((rel, "abbreviation"))
     assert offenders == []
+
+
+class TestAttribution:
+    """The wheel's publisher asks for credit wherever the wheel is shown, so the
+    credit travels with the notes in the content file and the app displays it."""
+
+    def test_lexicon_carries_a_credit_line_and_link(self, lex):
+        credit = lex.lexicon["attribution"]
+        assert "Taster's Flavor Wheel (2020)" in credit["text"]
+        assert "own colors and layout" in credit["text"]
+        assert credit["url"].startswith("https://")
+
+    def test_credit_reaches_the_client(self, lex):
+        assert lex.to_json()["lexicon"]["attribution"] == lex.lexicon["attribution"]

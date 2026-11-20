@@ -13,7 +13,7 @@ from tests.tasting.helpers import (make_coffee, make_flight, make_group, make_me
                                    make_tasting, make_user)
 from utils import utc_now
 
-JASMINE, PEACH = "Floral>Floral>jasmine", "Fruity>Other fruit>peach"
+JASMINE, PEACH = "Floral>jasmine", "Fruit>Stone Fruit>peach"
 TZ = "UTC"
 
 
