@@ -128,6 +128,10 @@ The blueprint in `render.yaml` runs the image as a web service with a 1 GB disk 
 
 ## Development
 
+`./scripts/dev.sh` does everything below in one step: it creates `.venv` and installs frontend packages on first run, migrates a SQLite database at `instance/dev.db`, and runs the API on port 8000 and the web app on http://localhost:5173. Ctrl-C stops both. `DATABASE_URL`, `SECRET_KEY` and `BASE_URL` from your environment override its defaults.
+
+By hand:
+
 ```sh
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 SECRET_KEY=dev BASE_URL=http://localhost:5173 DATABASE_URL=sqlite:///dev.db .venv/bin/alembic upgrade head
